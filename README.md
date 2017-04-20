@@ -3,7 +3,6 @@ Copyright (C) 2013-2017 Juan D. Soler.
 MAGNETAR was created by Juan D. Soler, but is now maintained by several people. 
 See the LIME repository on GitHub for further details.
 
-==================================
 MAGNETAR
 ==================================
 
