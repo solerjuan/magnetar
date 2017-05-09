@@ -11,16 +11,16 @@ from astropy.convolution import Gaussian2DKernel
 
 
 def roangles3D(dens, Bx, By, Bz):
-	# Calculates the relative orientation angles between the density structures and the magnetic field.
+	# Calculates the relative orientation angle between the density structures and the magnetic field.
 	# INPUTS
 	# dens - regular cube with the values of density 
-	# Bx   -
-	# By   -
-	# Bz   -
+	# Bx   - regular cube with the values of x-component of the magnetic field
+	# By   - regular cube with the values of y-component of the magnetic field
+	# Bz   - regular cube with the values of z-component of the magnetic field
 	#
 	# OUTPUTS
-	#
-	#
+	# cosphi - regular cube with the cosine of the relative orientation angle 
+	#          between the density gradient and the magnetic field.
 
     	grad=np.gradient(dens, edge_order=2)
 	gx=grad[1]; gy=grad[0]; gz=grad[2];
@@ -46,11 +46,14 @@ def roangles3D(dens, Bx, By, Bz):
 
 
 def equibins(dens, steps=10, mind=0.):
-	# Calculates the relative orientation angles between the density structures and the magnetic field.
+	# Calculates the edges of (steps) bins with equal number of voxels.
 	# INPUTS
-        # dens - regular cube with the values of density 
-	# steps -
-	# mind - 
+        # dens   - regular cube with the values of density 
+	# steps  - number of bins with equal number of voxels
+	# mind   - minimun value of density to be considered in the calculation of the density bins
+	# OUTPUTS
+	# dsteps - edges of the density bins	
+
 
 	sz=np.shape(dens)
 	hist, bin_edges = np.histogram(dens[(dens > mind).nonzero()], bins=10*sz[0]*sz[1])
@@ -70,7 +73,13 @@ def equibins(dens, steps=10, mind=0.):
 	return dsteps
 
 def roparameter(cosphi, hist, s_cosphi=0.125):
-		
+	# Calculate the relative orientation parameter
+	# INPUTS
+	# cosphi   - vector with the reference values for the histogram
+	# hist     - histogram of relative orientations	
+	# s_cosphi - range for the definitions of parallel (0 < cosphi < s_cosphi) or 
+	#            perpendicular (1-s_cosphi < cosphi < 1).
+
 	para=(np.abs(cosphi)>1.-s_cosphi).nonzero()
 	perp=(np.abs(cosphi)<s_cosphi).nonzero()
 
