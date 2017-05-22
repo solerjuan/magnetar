@@ -9,12 +9,12 @@ from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
 
 def roangles(Imap, Qmap, Umap):
-
+    
 	psi=0.5*np.arctan2(-Umap,Qmap)	
 	ex=np.sin(psi)
-    	ey=np.cos(psi)
-
-    	grad=np.gradient(Imap, edge_order=2)
+    ey=np.cos(psi)
+    
+    grad=np.gradient(Imap, edge_order=2)
 	#kernel=Gaussian2DKernel(3)
 	#grad=np.gradient(convolve_fft(Imap, kernel))	
 	phi=np.arctan2(grad[0]*ex-grad[1]*ey, grad[0]*ey+grad[1]*ex)		
@@ -22,7 +22,7 @@ def roangles(Imap, Qmap, Umap):
 	bad=np.logical_or(grad[0]*grad[0]+grad[1]*grad[1]==0., Qmap*Qmap+Umap*Umap==0.).nonzero()	
 	phi[bad]=np.sqrt(-1)
 
-    	return np.abs(phi)
+    return np.abs(phi)
 
 
 def hro(Imap, Qmap, Umap, steps=10, hsize=20, minI=0.):
