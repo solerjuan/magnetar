@@ -12,6 +12,7 @@ MAGNETAR calculates the histogram of relative orientation between density struct
 
 If you make use of this package in a publication, please cite our accompanying paper:
 
+```
 @ARTICLE{Soler2013,
    author = {{Soler}, J.~D. and {Hennebelle}, P. and {Martin}, P.~G. and 
 	{Miville-Desch{\^e}nes}, M.-A. and {Netterfield}, C.~B. and 
@@ -31,4 +32,7 @@ archivePrefix = "arXiv",
    adsurl = {http://adsabs.harvard.edu/abs/2013ApJ...774..128S},
   adsnote = {Provided by the SAO/NASA Astrophysics Data System}
 }
+```
+Citation courtesy of [ADS](https://ui.adsabs.harvard.edu/#).
+
 
