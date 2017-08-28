@@ -8,10 +8,27 @@ MAGNETAR
 
 MAGNETAR is set of tools for the study of the magnetic field in simulations of MHD turbulence and polarization observations.
 
-MAGNETAR calculates the histogram of relative orientation between density structure in the magnetic field in data cubes from simulations of MHD turbulence and observations of polarization using the method of histogram of relative orientations (HRO). Details on the method can be found in Soler et al., ApJ 774, 128S (2013) and Planck intermediate results. XXXV., A&A 586A, 138P (2016).
+MAGNETAR calculates the histogram of relative orientation between density structure in the magnetic field in data cubes from simulations of MHD turbulence and observations of polarization using the method of histogram of relative orientations (HRO).
 
-MAGNETAR also calculates the structure function of polarization angles using the method described in Planck intermediate results. XXXV., A&A 586A, 138P (2016).
+If you make use of this package in a publication, please cite our accompanying paper:
 
-Any scientific publication making use of the MAGNETAR code should also reference both of the aforementioned publications.
-
+@ARTICLE{Soler2013,
+   author = {{Soler}, J.~D. and {Hennebelle}, P. and {Martin}, P.~G. and 
+	{Miville-Desch{\^e}nes}, M.-A. and {Netterfield}, C.~B. and 
+	{Fissel}, L.~M.},
+    title = "{An Imprint of Molecular Cloud Magnetization in the Morphology of the Dust Polarized Emission}",
+  journal = {\apj},
+archivePrefix = "arXiv",
+   eprint = {1303.1830},
+ primaryClass = "astro-ph.GA",
+ keywords = {ISM: clouds, ISM: magnetic fields, magnetic fields, methods: statistical, polarization },
+     year = 2013,
+    month = sep,
+   volume = 774,
+      eid = {128},
+    pages = {128},
+      doi = {10.1088/0004-637X/774/2/128},
+   adsurl = {http://adsabs.harvard.edu/abs/2013ApJ...774..128S},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
 
