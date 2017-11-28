@@ -1,0 +1,36 @@
+# This file is part of MAGNETAR, the set of magnetic field analysis tools
+#
+# Copyright (C) 2013-2017 Juan Diego Soler
+
+import numpy as np
+import matplotlib.pyplot as plt
+from astropy.io import fits
+from astropy.convolution import convolve, convolve_fft
+from astropy.convolution import Gaussian2DKernel
+
+# -----------------------------------------------------------------------------------------------------------
+def gradpoverp(Qmap, Umap, ksz=1):
+
+   if (ksz > 1):
+      sQmap=Qmap
+      sUmap=Umap
+   else:
+      sQmap=Qmap
+      sUmap=Qmap 
+  
+   gradQ=np.gradient(Qmap)
+
+      normGrad=np.sqrt(grad[0]**2 + grad[1]**2)
+
+      dIdx=grad[0]
+      dIdy=grad[1]
+      angles=np.arctan(np.tan(np.arctan2(dIdy,dIdx)))
+
+   gradQ=
+
+
+# -----------------------------------------------------------------------------------------------------------
+def anglemean(angles):
+
+	return 0
+

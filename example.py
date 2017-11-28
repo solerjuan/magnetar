@@ -24,7 +24,7 @@ indir='/Users/soler/Documents/magnetar/data/'
 prefix='Taurusfwhm10'
 
 # ================================================================================================================================
-def testHRO():
+def exampleHRO2D():
 
    hdu=fits.open(indir+'Taurusfwhm5_logNHmap.fits')
    logNHmap=hdu[0].data
@@ -36,7 +36,7 @@ def testHRO():
    hro(logNHmap, Qmap, Umap, minI=20.7)
 
 # ================================================================================================================================
-def testVisualization():
+def exampleVisualization():
 
    hdu=fits.open(indir+'Taurusfwhm5_logNHmap.fits')
    Imap=hdu[0].data
@@ -69,7 +69,7 @@ def testVisualization():
    plt.show()
 
 # ================================================================================================================================
-#testHRO();
-testVisualization();
+exampleHRO2D();
+exampleVisualization();
 
 
