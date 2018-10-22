@@ -49,8 +49,8 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
 
    vl=np.random.rand(sz[0],sz[1])
 
-   xi=np.arange(sz[0])
-   xj=np.arange(sz[1])
+   xj=np.arange(sz[0])
+   xi=np.arange(sz[1])
 
    for i in range(0,niter):
 
