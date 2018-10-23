@@ -15,7 +15,7 @@ from scipy import interpolate
 # ================================================================================================================================
 def planckct():
 
-   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt("/Users/soler/Documents/magnetar/Planck_Parchment_RGB.txt")/255.)
+   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt("Planck_Parchment_RGB.txt")/255.)
    colombi1_cmap.set_bad("gray") # color of missing pixels
    colombi1_cmap.set_under("blue")
 
@@ -28,7 +28,13 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
    # Vx     - X
    # Vy     - Y
    # length - L
-    
+
+   vxbad=np.isnan(vx).nonzero()
+   vybad=np.isnan(vy).nonzero()
+
+   vx[vxbad]=0. 
+   vy[vybad]=0.
+
    sz=np.shape(vx)
 
    nx=sz[0]
@@ -112,6 +118,9 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
 
       vl=0.25*vv/length
       #import pdb; pdb.set_trace()     
+
+   vl[vxbad]=np.nan
+   vl[vybad]=np.nan
 
    return vl
 
