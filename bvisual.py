@@ -37,15 +37,15 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
 
    sz=np.shape(vx)
 
-   nx=sz[0]
-   ny=sz[1]
+   ni=sz[0]
+   nj=sz[1]
 
    uu=np.sqrt(vx**2+vy**2)
    ii=(uu == 0.).nonzero()
 
    if (np.size(ii) > 0):
       uu[ii]=1.0
-
+   
    if (normalize):
       ux=vx/uu
       uy=vy/uu
@@ -53,18 +53,18 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
       ux=vx/np.max(uu)
       uy=vy/np.max(uu)
 
-   vl=np.random.rand(sz[0],sz[1])
+   vl=np.random.rand(ni,nj)
 
-   xj=np.arange(sz[0])
-   xi=np.arange(sz[1])
+   xi=np.arange(ni)
+   xj=np.arange(nj)
 
    for i in range(0,niter):
 
       texture=vl
-      vv=np.zeros(sz)
+      vv=np.zeros([ni,nj])
 
-      pi0, pj0 = np.meshgrid(xi, xj)
-      pi, pj = np.meshgrid(xi, xj)
+      pi0, pj0 = np.meshgrid(xi, xj, indexing ='ij')
+      pi, pj   = np.meshgrid(xi, xj, indexing ='ij')
       mi=pi 
       mj=pj
         
@@ -80,26 +80,26 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
          ppj0=ppj
          points   =np.transpose(np.array([pi0.ravel(),pj0.ravel()]))
          outpoints=np.transpose(np.array([ppi.ravel(),ppj.ravel()]))
-         dpi=interpolate.griddata(points, ux.ravel(), outpoints, method=interpolation)
-         dpj=interpolate.griddata(points, uy.ravel(), outpoints, method=interpolation)
+         dpi=interpolate.griddata(points, uy.ravel(), outpoints, method=interpolation)
+         dpj=interpolate.griddata(points, ux.ravel(), outpoints, method=interpolation)
 
-         ppi=ppi0+0.25*np.reshape(dpi,[sz[0],sz[1]])
-         ppj=ppj0+0.25*np.reshape(dpj,[sz[0],sz[1]])
+         ppi=ppi0+0.25*np.reshape(dpi,[ni,nj])
+         ppj=ppj0+0.25*np.reshape(dpj,[ni,nj])
 
          mmi0=mmi
          mmj0=mmj
          points   =np.transpose(np.array([pi0.ravel(),pj0.ravel()]))
          outpoints=np.transpose(np.array([mmi.ravel(),mmj.ravel()]))
-         dmi=interpolate.griddata(points, ux.ravel(), outpoints, method=interpolation)
-         dmj=interpolate.griddata(points, uy.ravel(), outpoints, method=interpolation)
+         dmi=interpolate.griddata(points, uy.ravel(), outpoints, method=interpolation)
+         dmj=interpolate.griddata(points, ux.ravel(), outpoints, method=interpolation)
 
-         mmi=mmi0-0.25*np.reshape(dmi,[sz[0],sz[1]])
-         mmj=mmj0-0.25*np.reshape(dmj,[sz[0],sz[1]])
+         mmi=mmi0-0.25*np.reshape(dmi,[ni,nj])
+         mmj=mmj0-0.25*np.reshape(dmj,[ni,nj])
 
-         pi=(np.fix(ppi) + sz[0]) % sz[0]
-         pj=(np.fix(ppj) + sz[1]) % sz[1]
-         mi=(np.fix(mmi) + sz[0]) % sz[0]
-         mj=(np.fix(mmj) + sz[1]) % sz[1]
+         pi=(np.fix(ppi) + ni) % ni
+         pj=(np.fix(ppj) + nj) % nj
+         mi=(np.fix(mmi) + ni) % ni
+         mj=(np.fix(mmj) + nj) % nj
 
          ppi=pi+(ppi.copy()-np.fix(ppi.copy()))
          ppj=pj+(ppj.copy()-np.fix(ppj.copy()))
@@ -113,8 +113,8 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
          points   =np.transpose(np.array([pi0.ravel(),pj0.ravel()]))
          outpoints=np.transpose(np.array([mmi.ravel(),mmj.ravel()]))
          tempB=interpolate.griddata(points, texture.ravel(), outpoints, method=interpolation)
-    
-         vv=vv.copy() + np.reshape(tempA,[sz[0],sz[1]]) + np.reshape(tempB,[sz[0],sz[1]])
+
+         vv=vv.copy() + np.reshape(tempA,[ni,nj]) + np.reshape(tempB,[ni,nj])
 
       vl=0.25*vv/length
       #import pdb; pdb.set_trace()     
