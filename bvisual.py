@@ -60,6 +60,8 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
 
    for i in range(0,niter):
 
+      print('iter {:.0f} / {:.0f}'.format(i, niter))
+
       texture=vl
       vv=np.zeros([ni,nj])
 
@@ -74,7 +76,8 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
       mmj=1.*mj
 
       for l in range(0,length):
-         print(l)
+
+         print('{} / {}'.format(l, length))
 
          ppi0=ppi
          ppj0=ppj
