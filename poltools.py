@@ -49,11 +49,18 @@ def anglediff(angle1, angle2):
    return phi
 
 # -----------------------------------------------------------------------------------------------------------
-def anglemean(angles):
+def anglemean(stokesq, stokesu):
 
    return 0
 
+# -----------------------------------------------------------------------------------------------------------
+def angledispqu(stokesq, stokesu):
 
+   meanq=np.mean(stokesq)
+   meanu=np.mean(stokesu)
 
-
+   meanpsi=0.5*np.arctan2(meanu,meanq)
+   deltapsi=0.5*np.arctan2(stokesq*meanu-meanq*stokesu, stokesq*meanq+meanu*stokesu)
+   disp=np.sqrt(np.mean(deltapsi**2))
+   return disp 
 
