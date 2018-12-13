@@ -85,7 +85,7 @@ def projRS(phi):
 
 
 # ===================================================================================================
-def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz=1):
+def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz=1, showplots=False):
     # Calculates the relative orientation angle between the density structures and the magnetic field.
     # INPUTS
     # Imap - Intensity or column density map
@@ -146,31 +146,33 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz
     outsteps=np.size(outh)
     color=iter(cm.cool(np.linspace(0, 1, outsteps)))
 
-    fig=plt.figure()
-    for i in range(0, outsteps):
-        c=next(color)
-        labeltext="%.2f"%Isteps[outh[i]] + r' < $N_{\rm H}/$cm$^{-2}$ < ' + "%.2f"%Isteps[outh[i]+1]
-        plt.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
-    plt.xlabel(r'cos($\phi$)')
-    plt.legend()
-    plt.show()	
+    if(showplots):
 
-    # --------------------------------------------------------------    
-    fig=plt.figure()
-    plt.plot(cdens, xi, '-', linewidth=2, c='red')
-    plt.axhline(y=0., c='k', ls='--')
-    plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
-    plt.ylabel(r'$\zeta$')
-    plt.show()
+       fig=plt.figure()
+       for i in range(0, outsteps):
+          c=next(color)
+          labeltext="%.2f"%Isteps[outh[i]] + r' < $N_{\rm H}/$cm$^{-2}$ < ' + "%.2f"%Isteps[outh[i]+1]
+          plt.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
+       plt.xlabel(r'cos($\phi$)')
+       plt.legend()
+       plt.show()	
 
-    # --------------------------------------------------------------
-    fig=plt.figure()
-    plt.plot(cdens, prs, '-', linewidth=2, c='blue')
-    plt.errorbar(cdens, prs, yerr=s_prs, c='blue', fmt='o')
-    plt.axhline(y=0., c='k', ls='--')
-    plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
-    plt.ylabel(r'$Z_{x}$')
-    plt.show()
+       # --------------------------------------------------------------    
+       fig=plt.figure()
+       plt.plot(cdens, xi, '-', linewidth=2, c='red')
+       plt.axhline(y=0., c='k', ls='--')
+       plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
+       plt.ylabel(r'$\zeta$')
+       plt.show()
+
+       # --------------------------------------------------------------
+       fig=plt.figure()
+       plt.plot(cdens, prs, '-', linewidth=2, c='blue')
+       plt.errorbar(cdens, prs, yerr=s_prs, c='blue', fmt='o')
+       plt.axhline(y=0., c='k', ls='--')
+       plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
+       plt.ylabel(r'$Z_{x}$')
+       plt.show()
    
     csteps=0.5*(Isteps[0:np.size(Isteps)-1]+Isteps[1:np.size(Isteps)]) 
 
