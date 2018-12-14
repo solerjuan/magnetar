@@ -10,6 +10,8 @@ from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
 from scipy import ndimage
 
+import pycircstat as circ
+
 # ===================================================================================================
 def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest'):
     # Calculates the relative orientation angle between the density structures and the magnetic field following the method
@@ -59,15 +61,19 @@ def roparameter(phi, hist, s_phi=20.):
 
 
 # ===================================================================================================
-def projRS(phi):
+def projRS(phi, wgts=None):
     # Calculate the projected Rayleight statistics as defined in Jow, et al. MNRAS (2018) in press.
     #
     # INPUTS
     # phi      - relative orientation angles defined between -pi/2 and pi/2
-    #
+    # wgts     - 
     # OUTPUTS
     # psr      - projected Rayleigh statistic
     # s_prs    - 
+
+    if wgts is None:
+        wgts = np.ones_like(phi)
+    assert wgts.shape == phi.shape, "Dimensions of phi and wgts must match"
 
     angles=2.*phi
 
@@ -79,19 +85,23 @@ def projRS(phi):
     temp=np.sum(np.sin(angles)*np.sin(angles))
     s_Zx=np.sqrt((2.*temp-Zy*Zy)/np.size(angles))
 
-    meanPhi=0.5*np.arctan2(Zy, Zx)
+    meanPhi=0.5*np.arctan2(Zy,Zx)
 
-    return Zx, s_Zx
+    return Zx, s_Zx, np.arctan(np.tan(meanPhi))
 
 
 # ===================================================================================================
-def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz=1, showplots=False):
+def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz=1, showplots=False, w=None):
     # Calculates the relative orientation angle between the density structures and the magnetic field.
     # INPUTS
     # Imap - Intensity or column density map
     # Qmap - Stokes Q map
     # Umap - Stokes U map
     # mask -     
+
+    if w is None:
+        w=np.ones_like(Imap)
+    assert w.shape == Imap.shape, "Dimensions of Imap and w must match"
 
     sz=np.shape(Imap)
     phi=roangles(Imap, Qmap, Umap, mask=mask, ksz=ksz)
@@ -119,10 +129,11 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz
     Isteps[np.size(Isteps)-1]=np.max(iImap)
     
     hros=np.zeros([steps,hsize])	
-    Smap=0.*Imap
+    Smap=np.nan*Imap
     xi=np.zeros(steps)
     prs=np.zeros(steps)
     s_prs=np.zeros(steps)
+    meanphi=np.zeros(steps)
     cdens=np.zeros(steps)
     
     for i in range(0, np.size(Isteps)-1):
@@ -137,11 +148,12 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz
 
         xi[i]=roparameter(bin_centre, hist)
 
-        TEMPprs, TEMPs_prs = projRS(phi[good])      
-        prs[i]=TEMPprs
-        s_prs[i]=TEMPs_prs
-
-        print(i)
+        TEMPprs, TEMPs_prs, TEMPmeanphi = projRS(phi[good])      
+        Zx=circ.tests.vtest(2.*phi[good], 0., w=w[good])[1]
+        Zy=circ.tests.vtest(2.*phi[good], np.pi/2., w=w[good])[1]
+        prs[i]=Zx
+        s_prs[i]=1.
+        meanphi[i]=0.5*np.arctan2(Zy,Zx)
 
     outsteps=np.size(outh)
     color=iter(cm.cool(np.linspace(0, 1, outsteps)))
@@ -176,6 +188,6 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz
    
     csteps=0.5*(Isteps[0:np.size(Isteps)-1]+Isteps[1:np.size(Isteps)]) 
 
-    return csteps, xi
+    return csteps, xi, prs, meanphi
 
 
