@@ -102,16 +102,6 @@ def polgal2equ(Imap, Qmap, Umap, header):
    ex_gal=-np.sin(psi_gal)
    ey_gal=np.cos(psi_gal)
 
-   bx=ey_gal
-   by=-ex_gal
-   x, y, ux, uy = vectors(Imap, bx, by, pitch=25)
-
-   ax1=plt.subplot(1,1,1, projection=WCS(hdrREF))
-   im=ax1.imshow(Imap, origin='lower', cmap=planckct())
-   arrows=plt.quiver(x, y, ux, uy, units='width', color='black', pivot='middle', headlength=0, headwidth=0)
-   plt.colorbar(im)
-   plt.show()
-
    hduIN=fits.PrimaryHDU(ex_gal)
    hduIN.header=header
    TEMPex_gal, footprint = reproject_interp(hduIN, hdrOUT) 
