@@ -145,28 +145,3 @@ def polgal2equ(Imap, Qmap, Umap, header):
 
    #import pdb; pdb.set_trace()
 
-indir='data/'
-hdu=fits.open(indir+'Taurusfwhm5_logNHmap.fits')
-Imap=hdu[0].data
-hdrREF=hdu[0].header
-hdu=fits.open(indir+'Taurusfwhm10_Qmap.fits')
-Qmap=hdu[0].data
-hdu=fits.open(indir+'Taurusfwhm10_Umap.fits')
-Umap=hdu[0].data
-
-Imap_equ, Qmap_equ, Umap_equ, hdrOUT=polgal2equ(Imap, Qmap, Umap, hdrREF)
-
-psi=0.5*np.arctan2(Umap_equ,Qmap_equ)
-ex=np.sin(psi)
-ey=np.cos(psi)
-bx=ey
-by=-ex
-x, y, ux, uy = vectors(Imap_equ, bx, by, pitch=25)
-
-ax1=plt.subplot(1,1,1, projection=WCS(hdrOUT))
-im=ax1.imshow(Imap_equ, origin='lower', cmap=planckct())
-arrows=plt.quiver(x, y, ux, uy, units='width', color='black', pivot='middle', headlength=0, headwidth=0)
-plt.colorbar(im)
-plt.show()
-
-
