@@ -117,8 +117,6 @@ def polgal2equ(Imap, Qmap, Umap, header):
    angc=np.arccos(np.sin(deltaGN*np.pi/180.0))
      
    alpha0, delta0=np.meshgrid(ra, dec) 
-   #alpha0=np.mean(ra)
-   #delta0=np.mean(dec)
 
    angb=np.arccos(np.sin(delta0*np.pi/180.0))
    anga=np.arccos(np.sin(deltaGN*np.pi/180.0)*np.sin(delta0*np.pi/180.0)+np.cos(deltaGN*np.pi/180.0)*np.cos(delta0*np.pi/180.0)*np.cos((alpha0-alphaGN)*np.pi/180.0))
