@@ -16,14 +16,43 @@ from reproject import reproject_interp
 from bvisual import *
 
 # -----------------------------------------------------------------------------------------------------------
+def findclosedcontour(Imap, bins=100):
+ 
+   minI=np.nan
+   sz=np.shape(Imap)
+
+   good=np.isfinite(Imap)
+   hist, bin_edges = np.histogram(Imap[good], bins=bins, density=True)
+   bin_centres=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])   
+
+   tempImap=Imap.copy()
+   tempImap[np.isnan(tempImap).nonzero()]=0. 
+   for i in range(0,bins):
+      positions=np.logical_and(tempImap>bin_edges[i],tempImap<bin_edges[i+1]).nonzero()   
+
+      if (np.max(positions[0]+1) < sz[0]):
+         if (np.size(np.isnan(Imap[positions[0]+1,positions[1]]).nonzero()) == 0):
+            if (np.min(positions[0]-1) > 0): 
+               if (np.size(np.isnan(Imap[positions[0]-1,positions[1]]).nonzero()) == 0):
+                  if (np.max(positions[1]+1) < sz[1]):
+                     if (np.size(np.isnan(Imap[positions[0],positions[1]+1]).nonzero()) == 0):
+                        if (np.min(positions[1]-1) > 0):
+                           if (np.size(np.isnan(Imap[positions[0]+1,positions[1]-1]).nonzero()) == 0):
+                              minI=bin_edges[i]
+                              break
+
+   return minI
+
+
+# -----------------------------------------------------------------------------------------------------------
 def gradpoverp(Qmap, Umap, ksz=1):
 
    if (ksz <= 1):
       sQmap=Qmap
       sUmap=Umap
    else:
-      sQmap=convolve_fft(Qmap, Gaussian2DKernel(float(pxksz)))
-      sUmap=convolve_fft(Umap, Gaussian2DKernel(float(pxksz)))
+      sQmap=convolve_fft(Qmap, Gaussian2DKernel(float(ksz)))
+      sUmap=convolve_fft(Umap, Gaussian2DKernel(float(ksz)))
 
    P=np.sqrt(sQmap**2 + sUmap**2)
   
@@ -99,15 +128,29 @@ def polgal2equ(Imap, Qmap, Umap, header):
    Imap_equ, footprintI = reproject_interp(hduIN, hdrOUT)
  
    psi_gal=0.5*np.arctan2(-Umap,Qmap)
-   ex_gal=-np.sin(psi_gal)
-   ey_gal=np.cos(psi_gal)
+   p_gal=np.sqrt(Qmap**2+Umap**2)
 
-   hduIN=fits.PrimaryHDU(ex_gal)
+   #ex_gal=-np.sin(psi_gal)
+   #ey_gal=np.cos(psi_gal)
+
+   #hduIN=fits.PrimaryHDU(ex_gal)
+   #hduIN.header=header
+   #TEMPex_gal, footprint = reproject_interp(hduIN, hdrOUT) 
+   #hduIN=fits.PrimaryHDU(ey_gal)
+   #hduIN.header=header
+   #TEMPey_gal, footprint = reproject_interp(hduIN, hdrOUT)
+
+   hduIN=fits.PrimaryHDU(Qmap)
    hduIN.header=header
-   TEMPex_gal, footprint = reproject_interp(hduIN, hdrOUT) 
-   hduIN=fits.PrimaryHDU(ey_gal)
+   TEMPqmap, footprint = reproject_interp(hduIN, hdrOUT)         
+   hduIN=fits.PrimaryHDU(Umap)
    hduIN.header=header
-   TEMPey_gal, footprint = reproject_interp(hduIN, hdrOUT)
+   TEMPumap, footprint = reproject_interp(hduIN, hdrOUT)
+
+   TEMPp_gal=np.sqrt(TEMPqmap**2+TEMPumap**2)
+   TEMPpsi_gal=0.5*np.arctan2(-TEMPumap,TEMPqmap) 
+   TEMPex_gal=-1.*TEMPp_gal*np.sin(TEMPpsi_gal)
+   TEMPey_gal=    TEMPp_gal*np.cos(TEMPpsi_gal)
 
    galnorth_gal=SkyCoord(l=0.*u.degree, b=90.*u.degree, frame='galactic')
    galnorth_equ=galnorth_gal.transform_to('fk5')
@@ -127,7 +170,7 @@ def polgal2equ(Imap, Qmap, Umap, header):
    ey_equ=np.sin(alpha)*TEMPex_gal+np.cos(alpha)*TEMPey_gal
 
    Qmap_equ=ey_equ**2-ex_equ**2
-   Umap_equ=2.*ey_equ*ex_equ      
+   Umap_equ=2.*ey_equ*ex_equ
 
    return Imap_equ, Qmap_equ, Umap_equ, hdrOUT
 
