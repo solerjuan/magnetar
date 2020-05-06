@@ -8,10 +8,12 @@ from matplotlib.pyplot import cm
 from astropy.io import fits
 from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
+from scipy import ndimage
 
+import pycircstat as circ
 
 # ===================================================================================================
-def roangles(Imap, Qmap, Umap, ksz=1):
+def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest'):
     # Calculates the relative orientation angle between the density structures and the magnetic field following the method
     # presented in Soler, et al. ApJ 774 (2013) 128S
     #
@@ -26,18 +28,18 @@ def roangles(Imap, Qmap, Umap, ksz=1):
     ex=np.sin(psi)
     ey=np.cos(psi)
     
-    if (ksz > 1):
-       kernel=Gaussian2DKernel(ksz)
-       grad=np.gradient(convolve_fft(Imap, kernel))
-    else:
-       grad=np.gradient(Imap, edge_order=2)
+    dIdx=ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[0,1], mode=mode)
+    dIdy=ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[1,0], mode=mode)
 
-    phi=np.arctan2(grad[0]*ex-grad[1]*ey, grad[0]*ey+grad[1]*ex)		
-    bad=np.logical_or(grad[0]*grad[0]+grad[1]*grad[1]==0., Qmap*Qmap+Umap*Umap==0.).nonzero()	
+    phi=np.arctan2(dIdy*ex-dIdx*ey, dIdy*ey+dIdx*ex)		
+    bad=np.logical_or(dIdx**2+dIdy**2==0., Qmap**2+Umap**2==0.).nonzero()	
     phi[bad]=np.nan
-    
-    return np.arctan(np.tan(phi))
+   
+    if np.array_equal(np.shape(Imap), np.shape(mask)):
+       bad=(mask==0.).nonzero() 
+       phi[bad]=np.nan     
 
+    return np.arctan(np.tan(phi))
 
 # ===================================================================================================
 def roparameter(phi, hist, s_phi=20.):
@@ -59,15 +61,19 @@ def roparameter(phi, hist, s_phi=20.):
 
 
 # ===================================================================================================
-def projRS(phi):
+def projRS(phi, wgts=None):
     # Calculate the projected Rayleight statistics as defined in Jow, et al. MNRAS (2018) in press.
     #
     # INPUTS
     # phi      - relative orientation angles defined between -pi/2 and pi/2
-    #
+    # wgts     - 
     # OUTPUTS
     # psr      - projected Rayleigh statistic
     # s_prs    - 
+
+    if wgts is None:
+        wgts = np.ones_like(phi)
+    assert wgts.shape == phi.shape, "Dimensions of phi and wgts must match"
 
     angles=2.*phi
 
@@ -79,25 +85,37 @@ def projRS(phi):
     temp=np.sum(np.sin(angles)*np.sin(angles))
     s_Zx=np.sqrt((2.*temp-Zy*Zy)/np.size(angles))
 
-    meanPhi=0.5*np.arctan2(Zy, Zx)
+    meanPhi=0.5*np.arctan2(Zy,Zx)
 
-    return Zx, s_Zx
+    return Zx, s_Zx, np.arctan(np.tan(meanPhi))
 
 
 # ===================================================================================================
-def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9]):
+def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz=1, showplots=False, w=None):
     # Calculates the relative orientation angle between the density structures and the magnetic field.
     # INPUTS
     # Imap - Intensity or column density map
     # Qmap - Stokes Q map
-    # Upam - Stokes U map
-    
+    # Umap - Stokes U map
+    # mask -     
+
+    if w is None:
+        w=np.ones_like(Imap)
+    assert w.shape == Imap.shape, "Dimensions of Imap and w must match"
+
     sz=np.shape(Imap)
-    phi=roangles(Imap, Qmap, Umap)
-    
-    hist, bin_edges = np.histogram(Imap[(Imap > minI).nonzero()], bins=100*sz[0])
+    phi=roangles(Imap, Qmap, Umap, mask=mask, ksz=ksz)
+
+    if np.array_equal(np.shape(Imap), np.shape(mask)):
+       good=np.logical_and(mask > 0., Imap > minI).nonzero()      
+       hist, bin_edges = np.histogram(Imap[good], bins=100*sz[0])
+       iImap=Imap*mask
+    else:
+       good=(Imap > minI).nonzero()
+       hist, bin_edges = np.histogram(Imap[good], bins=100*sz[0])
+       iImap=Imap
+
     bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
-    
     chist=np.cumsum(hist)
     pitch=np.max(chist)/float(steps)
     
@@ -108,17 +126,18 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9]):
         good=np.logical_and(chist>hsteps[i],chist<hsteps[i+1]).nonzero()
         Isteps[i]=np.min(bin_centre[good])	
 
-    Isteps[np.size(Isteps)-1]=np.max(Imap)
+    Isteps[np.size(Isteps)-1]=np.max(iImap)
     
     hros=np.zeros([steps,hsize])	
-    Smap=0.*Imap
+    Smap=np.nan*Imap
     xi=np.zeros(steps)
     prs=np.zeros(steps)
     s_prs=np.zeros(steps)
+    meanphi=np.zeros(steps)
     cdens=np.zeros(steps)
     
     for i in range(0, np.size(Isteps)-1):
-        good=np.logical_and(Imap>Isteps[i],Imap<Isteps[i+1]).nonzero()
+        good=np.logical_and(iImap > Isteps[i], iImap < Isteps[i+1]).nonzero()
  
         hist, bin_edges = np.histogram((180/np.pi)*phi[good], bins=hsize, range=(-90.,90.))	
         bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
@@ -129,41 +148,46 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9]):
 
         xi[i]=roparameter(bin_centre, hist)
 
-        TEMPprs, TEMPs_prs = projRS(phi[good])      
-        prs[i]=TEMPprs
-        s_prs[i]=TEMPs_prs
-
-        print(i)
+        TEMPprs, TEMPs_prs, TEMPmeanphi = projRS(phi[good])      
+        Zx=circ.tests.vtest(2.*phi[good], 0., w=w[good])[1]
+        Zy=circ.tests.vtest(2.*phi[good], np.pi/2., w=w[good])[1]
+        prs[i]=Zx
+        s_prs[i]=1.
+        meanphi[i]=0.5*np.arctan2(Zy,Zx)
 
     outsteps=np.size(outh)
     color=iter(cm.cool(np.linspace(0, 1, outsteps)))
 
-    fig=plt.figure()
-    for i in range(0, outsteps):
-        c=next(color)
-        labeltext="%.2f"%Isteps[outh[i]] + r' < $N_{\rm H}/$cm$^{-2}$ < ' + "%.2f"%Isteps[outh[i]+1]
-        plt.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
-    plt.xlabel(r'cos($\phi$)')
-    plt.legend()
-    plt.show()	
+    if(showplots):
 
-    # --------------------------------------------------------------    
-    fig=plt.figure()
-    plt.plot(cdens, xi, '-', linewidth=2, c='red')
-    plt.axhline(y=0., c='k', ls='--')
-    plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
-    plt.ylabel(r'$\zeta$')
-    plt.show()
+       fig=plt.figure()
+       for i in range(0, outsteps):
+          c=next(color)
+          labeltext="%.2f"%Isteps[outh[i]] + r' < $N_{\rm H}/$cm$^{-2}$ < ' + "%.2f"%Isteps[outh[i]+1]
+          plt.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
+       plt.xlabel(r'cos($\phi$)')
+       plt.legend()
+       plt.show()	
 
-    # --------------------------------------------------------------
-    fig=plt.figure()
-    plt.plot(cdens, prs, '-', linewidth=2, c='blue')
-    plt.errorbar(cdens, prs, yerr=s_prs, c='blue', fmt='o')
-    plt.axhline(y=0., c='k', ls='--')
-    plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
-    plt.ylabel(r'$Z_{x}$')
-    plt.show()
-    
-    return Isteps, xi
+       # --------------------------------------------------------------    
+       fig=plt.figure()
+       plt.plot(cdens, xi, '-', linewidth=2, c='red')
+       plt.axhline(y=0., c='k', ls='--')
+       plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
+       plt.ylabel(r'$\zeta$')
+       plt.show()
+
+       # --------------------------------------------------------------
+       fig=plt.figure()
+       plt.plot(cdens, prs, '-', linewidth=2, c='blue')
+       plt.errorbar(cdens, prs, yerr=s_prs, c='blue', fmt='o')
+       plt.axhline(y=0., c='k', ls='--')
+       plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
+       plt.ylabel(r'$Z_{x}$')
+       plt.show()
+   
+    csteps=0.5*(Isteps[0:np.size(Isteps)-1]+Isteps[1:np.size(Isteps)]) 
+
+    return csteps, xi, prs, meanphi
 
 
