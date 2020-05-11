@@ -11,18 +11,19 @@ from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
 
 from scipy import interpolate
+from tqdm import tqdm
 
 # ================================================================================================================================
 def planckct():
 
-   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt("Planck_Parchment_RGB.txt")/255.)
-   colombi1_cmap.set_bad("gray") # color of missing pixels
+   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt('/Users/soler/Documents/PYTHON/magnetar/Planck_Parchment_RGB.txt')/255.)
+   colombi1_cmap.set_bad('white') # color of missing pixels
    colombi1_cmap.set_under("blue")
 
    return colombi1_cmap
 
 # ================================================================================================================================
-def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, scalar=1, interpolation='nearest'):
+def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, scalar=1, interpolation='nearest', inputmap=None):
    # Calculates the line integral convolution representation of the 2D vector field represented by Vx and Vy.
    # INPUTS
    # Vx     - X
@@ -53,14 +54,19 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
       ux=vx/np.max(uu)
       uy=vy/np.max(uu)
 
-   vl=np.random.rand(ni,nj)
+   if (inputmap is None):
+      vl=np.random.rand(ni,nj)
+   else:
+      vl=inputmap
 
    xi=np.arange(ni)
    xj=np.arange(nj)
 
+   outvl=np.zeros([niter,ni,nj])
+   
    for i in range(0,niter):
 
-      print('iter {:.0f} / {:.0f}'.format(i, niter))
+      print('iter {:.0f} / {:.0f}'.format(i+1, niter))
 
       texture=vl
       vv=np.zeros([ni,nj])
@@ -75,9 +81,9 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
       mmi=1.*mi
       mmj=1.*mj
 
-      for l in range(0,length):
+      pbar = tqdm(total=length)
 
-         print('{} / {}'.format(l, length))
+      for l in range(0,length):
 
          ppi0=ppi
          ppj0=ppj
@@ -119,13 +125,18 @@ def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, s
 
          vv=vv.copy() + np.reshape(tempA,[ni,nj]) + np.reshape(tempB,[ni,nj])
 
+         pbar.update()
+
+      pbar.close()
+     
       vl=0.25*vv/length
-      #import pdb; pdb.set_trace()     
+
+      outvl[i,:,:]=vl
 
    vl[vxbad]=np.nan
    vl[vybad]=np.nan
 
-   return vl
+   return outvl
 
 
 # ================================================================================================================================
@@ -153,7 +164,7 @@ def vectors(image, vx, vy, pitch=10, normalize=True, cmap='binary', savefile=Fal
    else:
       ux=vx/np.max(uu)
       uy=vy/np.max(uu)
-
+ 
    X, Y = np.meshgrid(np.arange(0, sz[1]-1, pitch), np.arange(0, sz[0]-1, pitch))
    ux0=ux[Y,X]
    uy0=uy[Y,X]
