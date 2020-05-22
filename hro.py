@@ -8,12 +8,14 @@ from matplotlib.pyplot import cm
 from astropy.io import fits
 from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
+from astropy.stats import circstats
 from scipy import ndimage
 
 import pycircstat as circ
+from tqdm import tqdm
 
 # ===================================================================================================
-def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest'):
+def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest', convention='Planck'):
     # Calculates the relative orientation angle between the density structures and the magnetic field following the method
     # presented in Soler, et al. ApJ 774 (2013) 128S
     #
@@ -23,11 +25,11 @@ def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest'):
     # Upam - Stokes U map
     # OUTPUTS
     # phi - relative orientation angle between the column density and projected magnetic field.
-    
-    psi=0.5*np.arctan2(-Umap,Qmap)	
+
+    psi=0.5*np.arctan2(Umap,Qmap)	
     ex=np.sin(psi)
-    ey=np.cos(psi)
-    
+    ey=np.cos(psi) 
+   
     dIdx=ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[0,1], mode=mode)
     dIdy=ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[1,0], mode=mode)
 
@@ -42,6 +44,28 @@ def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest'):
     return np.arctan(np.tan(phi))
 
 # ===================================================================================================
+def roparameterhist(phi, hsize=15, s_phi=20.):
+    # Calculate the relative orientation parameter $\xi$ as defined in Planck intermediate results. XXXV. A&A 586A (2016) 138P.
+    #
+    # INPUTS
+    # phi     - vector with the reference values for the histogram
+    # s_phi   - range for the definitions of parallel (0 < phi < s_phi and 180-s_phi < phi < 180) or 
+    #           perpendicular (90-s_phi < phi < 90+s_phi)
+    # OUTPUTS
+    # xi 	  - relative orientation parameter
+
+    hist, bin_edges = np.histogram((180/np.pi)*phi, bins=hsize, range=(-90.,90.))
+    bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
+
+    perp=(np.abs(bin_centre) > 90.-s_phi).nonzero()
+    para=(np.abs(bin_centre) < s_phi).nonzero()
+    xi=float(np.mean(hist[para])-np.mean(hist[perp]))/float(np.mean(hist[para])+np.mean(hist[perp]))
+   
+    s_xi=2.*np.sqrt((np.mean(hist[para])*np.std(hist[perp]))**2+(np.mean(hist[perp])*np.std(hist[para]))**2)/(np.mean(hist[para])+np.mean(hist[perp]))**2  
+ 
+    return xi, s_xi
+
+# ===================================================================================================
 def roparameter(phi, hist, s_phi=20.):
     # Calculate the relative orientation parameter $\xi$ as defined in Planck intermediate results. XXXV. A&A 586A (2016) 138P.
     #
@@ -51,143 +75,321 @@ def roparameter(phi, hist, s_phi=20.):
     # s_phi   - range for the definitions of parallel (0 < phi < s_phi and 180-s_phi < phi < 180) or 
     #           perpendicular (90-s_phi < phi < 90+s_phi)
     # OUTPUTS
-    # xi 	  - relative orientation parameter
+    # xi          - relative orientation parameter
 
     perp=(np.abs(phi) > 90.-s_phi).nonzero()
     para=(np.abs(phi) < s_phi).nonzero()
     xi=float(np.mean(hist[para])-np.mean(hist[perp]))/float(np.mean(hist[para])+np.mean(hist[perp]))
-    
-    return xi
+  
+    s_xi=2.*np.sqrt((np.mean(hist[para])*np.std(hist[perp]))**2+(np.mean(hist[perp])*np.std(hist[para]))**2)/(np.mean(hist[para])+np.mean(hist[perp]))**2
+
+    return xi, s_xi
 
 
 # ===================================================================================================
-def projRS(phi, wgts=None):
+def projRS(angles, w=None):
     # Calculate the projected Rayleight statistics as defined in Jow, et al. MNRAS (2018) in press.
     #
     # INPUTS
     # phi      - relative orientation angles defined between -pi/2 and pi/2
-    # wgts     - 
+    # w        - 
     # OUTPUTS
     # psr      - projected Rayleigh statistic
     # s_prs    - 
 
-    if wgts is None:
-        wgts = np.ones_like(phi)
-    assert wgts.shape == phi.shape, "Dimensions of phi and wgts must match"
+    if w is None:
+        w = np.ones_like(angles)
+    assert w.shape == angles.shape, "Dimensions of phi and wgts must match"
 
-    angles=2.*phi
+    Zx=circ.tests.vtest(angles, 0., w=w)[1]
+    Zy=circ.tests.vtest(angles, np.pi/2., w=w)[1]
 
-    Zx=np.sum(np.cos(angles))/np.sqrt(np.size(angles)/2.)
-    temp=np.sum(np.cos(angles)*np.cos(angles))
-    s_Zx=np.sqrt((2.*temp-Zx*Zx)/np.size(angles))
+    temp=np.sum(w*np.cos(angles)**2)
+    s_Zx=np.sqrt((2.*temp-Zx**2)/np.sum(w))
 
-    Zy=np.sum(np.sin(angles))/np.sqrt(np.size(angles)/2.)
-    temp=np.sum(np.sin(angles)*np.sin(angles))
-    s_Zx=np.sqrt((2.*temp-Zy*Zy)/np.size(angles))
+    temp=np.sum(w*np.sin(angles)**2)
+    s_Zy=np.sqrt((2.*temp-Zy**2)/np.sum(w))
 
-    meanPhi=0.5*np.arctan2(Zy,Zx)
+    x=np.sum(w*np.cos(angles))/np.sum(w)
+    y=np.sum(w*np.sin(angles))/np.sum(w)
+    mrl=circ.descriptive.resultant_vector_length(angles, w=w)
+    s_mrl=np.sqrt(np.sum(w*(np.cos(angles)-x)**2)+np.sum(w*(np.sin(angles)-y)**2))/np.sqrt(np.sum(w))
 
-    return Zx, s_Zx, np.arctan(np.tan(meanPhi))
+    meanphi=np.arctan2(y,x)
+    s_meanphi=np.sqrt(circ.descriptive.var(angles, w=w))
+    #s_meanphi=np.sqrt(Zx*Zx*s_Zy*s_Zy+Zy*Zy*s_Zx*s_Zx)/(Zx**2+Zy**2) 
+    # using astropy
+    #meanphi[i]=circstats.circmean(angles, weights=w[good])
+    #s_meanphi=np.sqrt(circstats.circvar(angles, weights=w))
 
+    return {'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'r': mrl}
 
 # ===================================================================================================
-def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., outh=[0,4,9], mask=0, ksz=1, showplots=False, w=None):
-    # Calculates the relative orientation angle between the density structures and the magnetic field.
-    # INPUTS
-    # Imap - Intensity or column density map
-    # Qmap - Stokes Q map
-    # Umap - Stokes U map
-    # mask -     
+def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showplots=False, w=None, convention='Planck', outh=[0,4,9], savefig=False, prefix=''):
+   # Calculates the relative orientation angle between the density structures and the magnetic field.
+   # INPUTS
+   # Imap - Intensity or column density map
+   # Qmap - Stokes Q map
+   # Umap - Stokes U map
+   # mask -     
 
-    if w is None:
-        w=np.ones_like(Imap)
-    assert w.shape == Imap.shape, "Dimensions of Imap and w must match"
+   if w is None:
+      w=np.ones_like(Imap)
+   assert w.shape == Imap.shape, "Dimensions of Imap and w must match"
 
-    sz=np.shape(Imap)
-    phi=roangles(Imap, Qmap, Umap, mask=mask, ksz=ksz)
+   sz=np.shape(Imap)
+   phi=roangles(Imap, Qmap, Umap, mask=mask, ksz=ksz, convention=convention)
 
-    if np.array_equal(np.shape(Imap), np.shape(mask)):
-       good=np.logical_and(mask > 0., Imap > minI).nonzero()      
-       hist, bin_edges = np.histogram(Imap[good], bins=100*sz[0])
-       iImap=Imap*mask
-    else:
-       good=(Imap > minI).nonzero()
-       hist, bin_edges = np.histogram(Imap[good], bins=100*sz[0])
-       iImap=Imap
+   segmap=Imap.copy()
 
-    bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
-    chist=np.cumsum(hist)
-    pitch=np.max(chist)/float(steps)
-    
-    hsteps=pitch*np.arange(0,steps+1,1)	
-    Isteps=np.zeros(steps+1)
-    
-    for i in range(0, np.size(Isteps)-1):
-        good=np.logical_and(chist>hsteps[i],chist<hsteps[i+1]).nonzero()
-        Isteps[i]=np.min(bin_centre[good])	
+   if np.array_equal(np.shape(Imap), np.shape(mask)):
+      bad=np.isnan(segmap).nonzero()
+      mask[bad]=0.
+   else:
+      mask=np.ones_like(Imap)
+      bad=np.isnan(segmap).nonzero()
+      mask[bad]=0.
 
-    Isteps[np.size(Isteps)-1]=np.max(iImap)
-    
-    hros=np.zeros([steps,hsize])	
-    Smap=np.nan*Imap
-    xi=np.zeros(steps)
-    prs=np.zeros(steps)
-    s_prs=np.zeros(steps)
-    meanphi=np.zeros(steps)
-    cdens=np.zeros(steps)
-    
-    for i in range(0, np.size(Isteps)-1):
-        good=np.logical_and(iImap > Isteps[i], iImap < Isteps[i+1]).nonzero()
+   bad=(segmap <= minI).nonzero()
+   mask[bad]=0.
+   bad=np.isnan(phi).nonzero()
+   mask[bad]=0.
+
+   segmap[bad]=np.nan      
+
+   good=(mask > 0.).nonzero()
+   hist, bin_edges = np.histogram(segmap[good], bins=int(0.75*np.size(Imap)))     
+
+   bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
+   chist=np.cumsum(hist)
+   pitch=np.max(chist)/float(steps)
+  
+   hsteps=pitch*np.arange(0,steps+1,1)	
+   Isteps=np.zeros(steps+1)
+
+   for i in range(0, np.size(Isteps)-1):
+      good=np.logical_and(chist>hsteps[i], chist<=hsteps[i+1]).nonzero()
+      Isteps[i]=np.min(bin_centre[good])	
+
+   Isteps[np.size(Isteps)-1]=np.nanmax(segmap)
  
-        hist, bin_edges = np.histogram((180/np.pi)*phi[good], bins=hsize, range=(-90.,90.))	
-        bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
+   # Preparing output of the HRO
+   hros=np.zeros([steps,hsize])
+   s_hros=np.zeros([steps,hsize])
+	
+   Smap=np.nan*Imap
+   xi=np.zeros(steps)
+   s_xi=np.zeros(steps)
+   Zx=np.zeros(steps)
+   Zy=np.zeros(steps)
+   s_Zx=np.zeros(steps)
+   s_Zy=np.zeros(steps)
+   meanphi=np.zeros(steps)
+   s_meanphi=np.zeros(steps)
+   mrl=np.zeros(steps)
+   cdens=np.zeros(steps)
 
-        hros[i,:]=hist
-        cdens[i]=np.mean([Isteps[i],Isteps[i+1]])
-        Smap[good]=i
+   for i in range(0, np.size(Isteps)-1):
 
-        xi[i]=roparameter(bin_centre, hist)
+      good=np.logical_and(segmap > Isteps[i], segmap <= Isteps[i+1]).nonzero()
+      print(np.size(good))   
+ 
+      hist, bin_edges = np.histogram((180/np.pi)*phi[good], bins=hsize, range=(-90.,90.))	
+      bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
 
-        TEMPprs, TEMPs_prs, TEMPmeanphi = projRS(phi[good])      
-        Zx=circ.tests.vtest(2.*phi[good], 0., w=w[good])[1]
-        Zy=circ.tests.vtest(2.*phi[good], np.pi/2., w=w[good])[1]
-        prs[i]=Zx
-        s_prs[i]=1.
-        meanphi[i]=0.5*np.arctan2(Zy,Zx)
+      hros[i,:]=hist
+      cdens[i]=np.mean([Isteps[i],Isteps[i+1]])
+      Smap[good]=i
 
-    outsteps=np.size(outh)
-    color=iter(cm.cool(np.linspace(0, 1, outsteps)))
+      TEMPxi, TEMPs_xi = roparameter(bin_centre, hist)
+      xi[i]=TEMPxi
+      s_xi[i]=TEMPs_xi
 
-    if(showplots):
+      outprojRS = projRS(2.*phi[good], w=w[good])     
+      Zx[i]=outprojRS['Zx']
+      Zy[i]=outprojRS['Zy']
+      s_Zx[i]=outprojRS['s_Zx']
+      s_Zy[i]=outprojRS['s_Zy']
+      meanphi[i]=0.5*outprojRS['meanphi']
+      s_meanphi[i]=0.5*outprojRS['s_meanphi']
+      mrl[i]=outprojRS['r']
 
-       fig=plt.figure()
-       for i in range(0, outsteps):
-          c=next(color)
-          labeltext="%.2f"%Isteps[outh[i]] + r' < $N_{\rm H}/$cm$^{-2}$ < ' + "%.2f"%Isteps[outh[i]+1]
-          plt.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
-       plt.xlabel(r'cos($\phi$)')
-       plt.legend()
-       plt.show()	
+ 
+   return {'csteps': Isteps, 'xi': xi, 's_xi': s_xi, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'asteps': bin_centre, 'hros': hros, 's_hros': s_hros, 'mrl': mrl, 'Smap': Smap} 
 
-       # --------------------------------------------------------------    
-       fig=plt.figure()
-       plt.plot(cdens, xi, '-', linewidth=2, c='red')
-       plt.axhline(y=0., c='k', ls='--')
-       plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
-       plt.ylabel(r'$\zeta$')
-       plt.show()
 
-       # --------------------------------------------------------------
-       fig=plt.figure()
-       plt.plot(cdens, prs, '-', linewidth=2, c='blue')
-       plt.errorbar(cdens, prs, yerr=s_prs, c='blue', fmt='o')
-       plt.axhline(y=0., c='k', ls='--')
-       plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
-       plt.ylabel(r'$Z_{x}$')
-       plt.show()
+# ==================================================================================================
+def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, convention='Planck', sigmaQQ=None, sigmaUU=None, mcflag=None, nruns=10, errorbar=None):
+
+   if (convention=='Planck'):
+      Qmap0=Qmap
+      Umap0=Umap
+   else:
+      Qmap0=Qmap
+      Umap0=-1.*Umap
+
+   if np.logical_or(np.logical_and(sigmaQQ is None, sigmaUU is None), mcflag):
+
+      output0 = hroLITE(Imap, Qmap0, Umap0, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention)
+      #isteps, roms, sroms, asteps, hros, shros = hroLITE(Imap, Qmap0, Umap0, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention)
+      isteps=output0['csteps']     
+      asteps=output0['asteps'] 
+      hros=output0['hros']
+      shros=output0['s_hros']   
+
+      zeta=output0['xi']      #roms[0]
+      Zx =output0['Zx']     #roms[1]
+      Zy =output0['Zy'] 
+      mphi=output0['meanphi'] #roms[2]
+  
+      s_zeta=output0['s_xi']      #sroms[0]
+      s_Zx =output0['s_Zx']     #sroms[1]
+      s_Zy =output0['s_Zy']
+      s_mphi=output0['s_meanphi'] #sroms[2]    
    
-    csteps=0.5*(Isteps[0:np.size(Isteps)-1]+Isteps[1:np.size(Isteps)]) 
+   else: 
 
-    return csteps, xi, prs, meanphi
+      assert Qmap.shape == sigmaQQ.shape, "Dimensions of Qmap and sigmaQQ must match"
+      assert Umap.shape == sigmaUU.shape, "Dimensions of Umap and sigmaUU must match"
+
+      hrosvec=np.zeros([nruns,steps,hsize])
+
+      zetavecMC=np.zeros([nruns,steps])
+      ZxvecMC=np.zeros([nruns,steps])
+      ZyvecMC=np.zeros([nruns,steps])
+      mphivecMC=np.zeros([nruns,steps])
+      mrlMC=np.zeros([nruns,steps])
+   
+      s_zetavecMC=np.zeros([nruns,steps])
+      s_ZxvecMC=np.zeros([nruns,steps])
+      s_ZyvecMC=np.zeros([nruns,steps])
+      s_mphivecMC=np.zeros([nruns,steps])
+      s_mrlMC=np.zeros([nruns,steps])      
+
+      pbar = tqdm(total=nruns)      
+
+      for i in range(0,nruns):
+
+         QmapR=np.random.normal(loc=Qmap0, scale=sigmaQQ)
+         UmapR=np.random.normal(loc=Umap0, scale=sigmaUU)
+         hrooutput= hroLITE(Imap, QmapR, UmapR, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention)
+
+         zetavecMC[i,:]=hrooutput['xi']
+         ZxvecMC[i,:] =hrooutput['Zx']
+         ZyvecMC[i,:] =hrooutput['Zy']
+         mphivecMC[i,:]=hrooutput['meanphi']
+         mrlMC[i,:]=hrooutput['mrl']
+
+         s_zetavecMC[i,:]=hrooutput['s_xi']
+         s_ZxvecMC[i,:] =hrooutput['s_Zx']
+         s_ZyvecMC[i,:] =hrooutput['s_Zy']
+         s_mphivecMC[i,:]=hrooutput['s_meanphi']
+
+         hrosvec[i,:,:]=hrooutput['hros']
+         pbar.update()
+
+      pbar.close()  
+
+      zeta=zetavecMC.mean(axis=0)
+      Zx=ZxvecMC.mean(axis=0)
+      Zy=ZyvecMC.mean(axis=0)
+      meanphi=circstats.circmean(mphivecMC, axis=0)
+      mrl=mrlMC.mean(axis=0)
+
+      if (errorbar=='MC'):
+         s_zeta=s_zetavecMC.std(axis=0)
+         s_Zx=s_ZxvecMC.std(axis=0)
+         s_Zy=s_ZyvecMC.std(axis=0)
+         s_meanphi=circ.descriptive.mean(s_mphivecMC, axis=0)
+      else:
+         s_zeta=hrooutput['s_xi']         #np.max([s_zetavecMC.std(axis=0),hrooutput['s_xi']], axis=0)
+         s_Zx=hrooutput['s_Zx']         #np.max([s_prsvecMC.std(axis=0),hrooutput['s_prs']], axis=0)
+         s_Zy=hrooutput['s_Zy']
+         s_meanphi=hrooutput['s_meanphi'] #np.max([circ.descriptive.mean(s_mphivecMC, axis=0),hrooutput['s_meanphi']], axis=0)
+      s_mrl=mrlMC.std(axis=0)            
+
+      csteps=hrooutput['csteps']
+      asteps=hrooutput['asteps']
+      Smap=hrooutput['Smap']
+
+      outhros=hrosvec.mean(axis=0)
+      s_outhros=hrosvec.std(axis=0) 
+
+   return {'csteps': csteps, 'xi': zeta, 's_xi': s_zeta, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'asteps': asteps, 'hros': outhros, 's_hros': s_outhros, 'mrl': mrl, 's_mrl': s_mrl, 'Smap': Smap}
+
+# ===================================================================================================
+def hroplts(csteps, roms, sroms, asteps, hros, s_hros, saveplots=False, prefix='', outh=None):
+
+   bin_centres= 0.5*(csteps[0:np.size(csteps)-1]+csteps[1:np.size(csteps)])
+
+   nhist=np.size(bin_centres)
+   if outh is None:
+      outh=[0, int(nhist/2.), nhist-1] 
+   if outh=='all':
+      outh=np.arange(nhist)
+   color=iter(cm.rainbow(np.linspace(0, 1, np.size(outh))))
+
+   fig = plt.figure(figsize=(4.0, 4.0), dpi=150)
+   plt.rc('font', size=8)
+   for i in range(0, np.size(outh)):
+      c=next(color)
+      #labeltext="%.2f"%Isteps[outh[i]] + r' < $N_{\rm H}/$cm$^{-2}$ < ' + "%.2f"%Isteps[outh[i]+1]
+      labeltext=str(np.round(csteps[outh[i]],2)) + r' < $N_{\rm H}/$cm$^{-2}$ < ' + str(np.round(csteps[outh[i]+1],2))  
+      plt.plot(asteps, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
+      plt.errorbar(asteps, hros[outh[i],:], yerr=s_hros[0], c=c)
+      plt.xlabel(r'$\phi$')
+      plt.ylabel('Histogram density')
+      plt.legend()
+   if (saveplots):
+      plt.savefig(prefix+'_HROs.png', bbox_inches='tight')
+      plt.close()
+   else:
+      plt.show()
+
+   # --------------------------------------------------------------    
+   fig = plt.figure(figsize=(4.0, 2.5), dpi=150)
+   plt.rc('font', size=8)
+   #plt.xlim(csteps[0],csteps[np.size(csteps)-1])
+   #plt.plot(bin_centres, roms[0], linewidth=0.5, c='orange', marker='.')
+   plt.errorbar(bin_centres, roms[0], yerr=sroms[0], c='orange')
+   plt.axhline(y=0., c='k', ls='--')
+   plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
+   plt.ylabel(r'$\zeta$')
+   if (saveplots):
+      plt.savefig(prefix+'_zeta.png', bbox_inches='tight')
+      plt.close()
+   else:
+      plt.show()
+
+   # --------------------------------------------------------------
+   fig = plt.figure(figsize=(4.0, 2.5), dpi=150)
+   plt.rc('font', size=8)
+   #plt.xlim(csteps[0],csteps[np.size(csteps)-1])
+   #plt.plot(bin_centres, roms[1], linewidth=0.5, c='cyan', marker='.')
+   plt.errorbar(bin_centres, roms[1], yerr=sroms[1], c='cyan')
+   plt.axhline(y=0., c='k', ls='--')
+   plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
+   plt.ylabel(r'$V$')
+   if (saveplots):
+      plt.savefig(prefix+'_PRS.png', bbox_inches='tight')    
+      plt.close()
+   else:
+      plt.show()
+   
+   # --------------------------------------------------------------
+   fig = plt.figure(figsize=(4.0, 2.5), dpi=150)
+   plt.rc('font', size=8)
+   #plt.xlim(csteps[0],csteps[np.size(csteps)-1])
+   #plt.plot(bin_centres, (180./np.pi)*np.abs(roms[2]), linewidth=0.5, c='magenta', marker='.')
+   plt.errorbar(bin_centres, (180./np.pi)*np.abs(roms[2]), yerr=(180./np.pi)*sroms[2], c='magenta')
+   plt.axhline(y=0., c='k', ls='--')
+   plt.axhline(y=90., c='k', ls='--')
+   plt.xlabel(r'log$_{10}$ ($N_{\rm H}/$cm$^{-2}$)')
+   plt.ylabel(r'$\phi$')
+   if (saveplots):
+      plt.savefig(prefix+'_meanphi.png', bbox_inches='tight')
+      plt.close()
+   else:
+      plt.show()
 
 
