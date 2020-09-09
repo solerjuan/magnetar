@@ -14,8 +14,11 @@ from scipy import ndimage
 import pycircstat as circ
 from tqdm import tqdm
 
+from bvisual import *
+from poltools import *
+
 # ===================================================================================================
-def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest', convention='Planck'):
+def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='reflect', convention='Planck', debug=False):
     # Calculates the relative orientation angle between the density structures and the magnetic field following the method
     # presented in Soler, et al. ApJ 774 (2013) 128S
     #
@@ -26,20 +29,61 @@ def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='nearest', convention='Planck
     # OUTPUTS
     # phi - relative orientation angle between the column density and projected magnetic field.
 
+    if (mask is 0):
+       mask=np.ones_like(Imap)
+   
     psi=0.5*np.arctan2(Umap,Qmap)	
-    ex=np.sin(psi)
+    ex=-np.sin(psi)
     ey=np.cos(psi) 
-   
-    dIdx=ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[0,1], mode=mode)
-    dIdy=ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[1,0], mode=mode)
+    angleb=np.arctan2(ey,-ex)
+    bx=ey; by=-ex
 
-    phi=np.arctan2(dIdy*ex-dIdx*ey, dIdy*ey+dIdx*ex)		
-    bad=np.logical_or(dIdx**2+dIdy**2==0., Qmap**2+Umap**2==0.).nonzero()	
+    sImap=ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[0,0], mode=mode)
+    dIdx =ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[0,1], mode=mode)
+    dIdy =ndimage.filters.gaussian_filter(Imap, [ksz, ksz], order=[1,0], mode=mode)
+    angleg=np.arctan2(dIdx,dIdy)
+
+    normgrad=np.sqrt(dIdx**2+dIdy**2)
+    unidIdx=dIdx/np.sqrt(dIdx**2+dIdy**2)
+    unidIdy=dIdy/np.sqrt(dIdx**2+dIdy**2)
+
+    cosphi=(dIdy*ey+dIdx*ex)/normgrad
+    sinphi=(dIdy*ex-dIdx*ey)/normgrad
+
+    #phi=np.arctan2(np.abs(dIdx*ex-dIdy*ey), dIdx*ey+dIdy*ex) 
+    #phi=np.arctan2(np.abs(dIdy*ex-dIdx*ey), dIdy*ey+dIdx*ex)
+    #phi=np.arctan2(np.abs(sinphi), cosphi)
+    phi=np.arccos(cosphi)
+    #phi=np.arcsin(sinphi)
+    bad=((dIdx**2+dIdy**2)==0.).nonzero()    #np.logical_or((dIdx**2+dIdy**2)==0., (Qmap**2+Umap**2)==0.).nonzero()	
     phi[bad]=np.nan
-   
+    bad=((Qmap**2+Umap**2)==0.).nonzero()
+    phi[bad]=np.nan
+    bad=(mask < 1.).nonzero()
+    phi[bad]=np.nan
+
+    # ------------------------------------------------------------------------------------
+    vecpitch=10
+    xx, yy, gx, gy = vectors(Imap, dIdx*mask, dIdy*mask, pitch=vecpitch) 
+    xx, yy, ux, uy = vectors(Imap, bx*mask, by*mask, pitch=vecpitch)   
     if np.array_equal(np.shape(Imap), np.shape(mask)):
-       bad=(mask==0.).nonzero() 
-       phi[bad]=np.nan     
+       bad=(mask==0.).nonzero()
+       phi[bad]=np.nan    
+ 
+    # Debugging -------------------------------------------------------------------------
+    if (debug):
+       fig = plt.figure(figsize=(7.0,7.0))
+       plt.rc('font', size=10)
+       ax1=plt.subplot(111)
+       im=ax1.imshow(np.abs(np.rad2deg(np.arctan(np.tan(phi)))), origin='lower', cmap='viridis')
+       ax1.quiver(xx, yy, gx, gy, units='width', color='red',   pivot='middle', scale=25., headlength=0, headwidth=1)
+       #ax1.quiver(xx, yy, -gy, gx, units='width', color='red',   pivot='middle', scale=25., headlength=0, headwidth=1)
+       ax1.quiver(xx, yy, ux, uy, units='width', color='cyan', pivot='middle', scale=25., headlength=0, headwidth=1)
+       ax1.contour(Imap, origin='lower', colors='black', levels=[0.005,0.01,0.02,0.05,0.1,0.2], linewidths=1.0)
+       cbar=fig.colorbar(im, ax=ax1, fraction=0.046, pad=0.04)
+       cbar.ax.set_title(r'$\phi$')
+       plt.show()
+       #import pdb; pdb.set_trace()
 
     return np.arctan(np.tan(phi))
 
@@ -125,7 +169,7 @@ def projRS(angles, w=None):
     return {'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'r': mrl}
 
 # ===================================================================================================
-def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showplots=False, w=None, convention='Planck', outh=[0,4,9], savefig=False, prefix=''):
+def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, showplots=False, w=None, convention='Planck', outh=[0,4,9], savefig=False, prefix='', segmap=None):
    # Calculates the relative orientation angle between the density structures and the magnetic field.
    # INPUTS
    # Imap - Intensity or column density map
@@ -133,14 +177,18 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showpl
    # Umap - Stokes U map
    # mask -     
 
+   sz=np.shape(Imap)
+
    if w is None:
       w=np.ones_like(Imap)
    assert w.shape == Imap.shape, "Dimensions of Imap and w must match"
 
-   sz=np.shape(Imap)
+   # Calculation of relative orientation angles
    phi=roangles(Imap, Qmap, Umap, mask=mask, ksz=ksz, convention=convention)
 
-   segmap=Imap.copy()
+   if segmap is None:
+      segmap=Imap.copy()
+   assert Imap.shape == segmap.shape, "Dimensions of Imap and segmap must match" 
 
    if np.array_equal(np.shape(Imap), np.shape(mask)):
       bad=np.isnan(segmap).nonzero()
@@ -150,6 +198,8 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showpl
       bad=np.isnan(segmap).nonzero()
       mask[bad]=0.
 
+   if minI is None:
+      minI=np.nanmin(segmap)
    bad=(segmap <= minI).nonzero()
    mask[bad]=0.
    bad=np.isnan(phi).nonzero()
@@ -159,11 +209,10 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showpl
 
    good=(mask > 0.).nonzero()
    hist, bin_edges = np.histogram(segmap[good], bins=int(0.75*np.size(Imap)))     
-
    bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
    chist=np.cumsum(hist)
    pitch=np.max(chist)/float(steps)
-  
+
    hsteps=pitch*np.arange(0,steps+1,1)	
    Isteps=np.zeros(steps+1)
 
@@ -172,7 +221,7 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showpl
       Isteps[i]=np.min(bin_centre[good])	
 
    Isteps[np.size(Isteps)-1]=np.nanmax(segmap)
- 
+
    # Preparing output of the HRO
    hros=np.zeros([steps,hsize])
    s_hros=np.zeros([steps,hsize])
@@ -199,7 +248,7 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showpl
 
       hros[i,:]=hist
       cdens[i]=np.mean([Isteps[i],Isteps[i+1]])
-      Smap[good]=i
+      Smap[good]=Isteps[i]
 
       TEMPxi, TEMPs_xi = roparameter(bin_centre, hist)
       xi[i]=TEMPxi
@@ -215,11 +264,11 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, showpl
       mrl[i]=outprojRS['r']
 
  
-   return {'csteps': Isteps, 'xi': xi, 's_xi': s_xi, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'asteps': bin_centre, 'hros': hros, 's_hros': s_hros, 'mrl': mrl, 'Smap': Smap} 
+   return {'csteps': Isteps, 'xi': xi, 's_xi': s_xi, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'asteps': bin_centre, 'hros': hros, 's_hros': s_hros, 'mrl': mrl, 'Smap': Smap, 'Amap': phi} 
 
 
 # ==================================================================================================
-def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, convention='Planck', sigmaQQ=None, sigmaUU=None, mcflag=None, nruns=10, errorbar=None):
+def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, convention='Planck', sigmaQQ=None, sigmaUU=None, mcflag=None, nruns=10, errorbar=None, segmap=None):
 
    if (convention=='Planck'):
       Qmap0=Qmap
@@ -230,7 +279,7 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
 
    if np.logical_or(np.logical_and(sigmaQQ is None, sigmaUU is None), mcflag):
 
-      output0 = hroLITE(Imap, Qmap0, Umap0, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention)
+      output0 = hroLITE(Imap, Qmap0, Umap0, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention, segmap=segmap)
       #isteps, roms, sroms, asteps, hros, shros = hroLITE(Imap, Qmap0, Umap0, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention)
       isteps=output0['csteps']     
       asteps=output0['asteps'] 
@@ -246,6 +295,8 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
       s_Zx =output0['s_Zx']     #sroms[1]
       s_Zy =output0['s_Zy']
       s_mphi=output0['s_meanphi'] #sroms[2]    
+ 
+      Amap=output0['Amap']   
    
    else: 
 
@@ -266,13 +317,15 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
       s_mphivecMC=np.zeros([nruns,steps])
       s_mrlMC=np.zeros([nruns,steps])      
 
+      Acube=np.zeros([nruns,Qmap.shape[0],Qmap.shape[1]])
+ 
       pbar = tqdm(total=nruns)      
 
       for i in range(0,nruns):
 
          QmapR=np.random.normal(loc=Qmap0, scale=sigmaQQ)
          UmapR=np.random.normal(loc=Umap0, scale=sigmaUU)
-         hrooutput= hroLITE(Imap, QmapR, UmapR, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention)
+         hrooutput= hroLITE(Imap, QmapR, UmapR, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention, segmap=segmap)
 
          zetavecMC[i,:]=hrooutput['xi']
          ZxvecMC[i,:] =hrooutput['Zx']
@@ -286,6 +339,9 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
          s_mphivecMC[i,:]=hrooutput['s_meanphi']
 
          hrosvec[i,:,:]=hrooutput['hros']
+
+         Acube[i,:,:]=hrooutput['Amap']
+     
          pbar.update()
 
       pbar.close()  
@@ -296,6 +352,8 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
       meanphi=circstats.circmean(mphivecMC, axis=0)
       mrl=mrlMC.mean(axis=0)
 
+      Amap=circstats.circmean(Acube, axis=0)
+ 
       if (errorbar=='MC'):
          s_zeta=s_zetavecMC.std(axis=0)
          s_Zx=s_ZxvecMC.std(axis=0)
@@ -315,7 +373,7 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
       outhros=hrosvec.mean(axis=0)
       s_outhros=hrosvec.std(axis=0) 
 
-   return {'csteps': csteps, 'xi': zeta, 's_xi': s_zeta, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'asteps': asteps, 'hros': outhros, 's_hros': s_outhros, 'mrl': mrl, 's_mrl': s_mrl, 'Smap': Smap}
+   return {'csteps': csteps, 'xi': zeta, 's_xi': s_zeta, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'asteps': asteps, 'hros': outhros, 's_hros': s_outhros, 'mrl': mrl, 's_mrl': s_mrl, 'Smap': Smap, 'Amap': Amap}
 
 # ===================================================================================================
 def hroplts(csteps, roms, sroms, asteps, hros, s_hros, saveplots=False, prefix='', outh=None):
