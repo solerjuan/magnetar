@@ -281,7 +281,7 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
 
    if np.logical_or(np.logical_and(sigmaQQ is None, sigmaUU is None), mcflag):
 
-      output0 = hroLITE(Imap, Qmap0, Umap0, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention, segmap=segmap, debug=debug)
+      output0 = hroLITE(Imap, Qmap, Umap, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention, segmap=segmap, debug=debug)
       isteps=output0['csteps']     
       asteps=output0['asteps'] 
       hros=output0['hros']
@@ -324,8 +324,8 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
 
       for i in range(0,nruns):
 
-         QmapR=np.random.normal(loc=Qmap0, scale=sigmaQQ)
-         UmapR=np.random.normal(loc=Umap0, scale=sigmaUU)
+         QmapR=np.random.normal(loc=Qmap, scale=sigmaQQ)
+         UmapR=np.random.normal(loc=Umap, scale=sigmaUU)
          hrooutput= hroLITE(Imap, QmapR, UmapR, steps=steps, hsize=hsize, minI=minI, mask=mask, ksz=ksz, w=w, convention=convention, segmap=segmap, debug=False)
 
          zetavecMC[i,:]=hrooutput['xi']
