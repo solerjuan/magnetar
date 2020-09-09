@@ -73,17 +73,16 @@ def exampleHRO2D():
    fig = plt.figure(figsize=(8.0,7.0))
    plt.rc('font', size=10)
    ax1=plt.subplot(111, projection=WCS(hdrREF))
-   #im=ax1.imshow(logNHmap, origin='lower', cmap='viridis')
-   im=ax1.imshow(np.abs(np.rad2deg(outputhro['Amap'])), origin='lower', cmap='viridis')
-   ax1.contour(sImap, origin='lower', levels=[0.010,0.02,0.03,0.06,0.125,0.25], colors='black', linewidths=0.5)
+   im=ax1.imshow(np.abs(np.rad2deg(outputhro['Amap'])), origin='lower', cmap='cividis')
+   ax1.contour(logNHmap, origin='lower', levels=[np.mean(logNHmap),np.mean(logNHmap)+1.0*np.std(logNHmap),np.mean(logNHmap)+2.0*np.std(logNHmap)], colors='white', linewidths=1.0)
    ax1.quiver(xx, yy, gx, gy, units='width', color='red', pivot='middle', scale=25., headlength=0, headwidth=1, alpha=0.8, transform=ax1.get_transform('pixel'))
    ax1.quiver(xx, yy, ux, uy, units='width', color='black', pivot='middle', scale=25., headlength=0, headwidth=1, transform=ax1.get_transform('pixel'))
    ax1.coords[0].set_axislabel(r'$l$')
    ax1.coords[1].set_axislabel(r'$b$')
    cbar=fig.colorbar(im, ax=ax1, fraction=0.046, pad=0.04)
-   cbar.ax.set_title(r'$\phi$')
+   cbar.ax.set_title(r'$\phi$ [deg]')
    plt.show() 
-   import pdb; pdb.set_trace() 
+   import pdb; pdb.set_trace()
 
    isteps=outputhro['csteps']
    icentres=0.5*(isteps[0:np.size(isteps)-1]+isteps[1:np.size(isteps)])
@@ -114,24 +113,30 @@ def exampleVisualization():
    hdu=fits.open(indir+prefix+'_Umap.fits')
    Umap=hdu[0].data
 
+   # --------------------------------
+   # Calculation of the polarization angle 
    psi=0.5*np.arctan2(-Umap,Qmap)
-
-   ex=np.cos(psi)
-   ey=np.sin(psi)
-   bx=ey
-   by=-ex
+   ex=-np.sin(psi); ey=np.cos(psi)
+   # 90 degrees rotation to obtain the magnetic field orientation
+   bx=ey; by=-ex
 
    sz=np.shape(Qmap)
-   length=int(0.05*sz[0]) 
-
-   licmap=lic(bx, by, length=length, niter=3)
+   length=int(0.05*sz[0]) # integration length in the LIC calculation 
+   niter=3 # number of iterations in the LIC calculation
+   liccube=lic(bx, by, length=length, niter=niter)
+   licmap=liccube[niter-1]
    x, y, ux, uy = vectors(Imap, bx, by, pitch=15)
 
-   ax1=plt.subplot(1,1,1, projection=WCS(refhdr1))
+   licmin=np.mean(licmap)-np.std(licmap)
+   licmax=np.mean(licmap)+np.std(licmap)
+
+   fig = plt.figure(figsize=(8.0,7.0))
+   plt.rc('font', size=10)
+   ax1=plt.subplot(111, projection=WCS(refhdr1))
    im=ax1.imshow(Imap, origin='lower', cmap=planckct())
-   ax1.imshow(licmap, origin='lower', alpha=0.4, cmap='binary', clim=[np.mean(licmap)-np.std(licmap),np.mean(licmap)+np.std(licmap)])
-   arrows=plt.quiver(x, y, ux, uy, units='width', color='black', pivot='middle', headlength=0, headwidth=0)  
-   plt.colorbar(im)
+   ax1.imshow(licmap, origin='lower', alpha=0.3, cmap='binary', vmin=licmin, vmax=licmax)
+   arrows=plt.quiver(x, y, ux, uy, units='width', color='black', pivot='middle', scale=25., headlength=0, headwidth=1, transform=ax1.get_transform('pixel'), alpha=0.6)
+   plt.colorbar(im, fraction=0.046, pad=0.04)
    plt.show()
    import pdb; pdb.set_trace()
 
@@ -200,6 +205,6 @@ def exampleStructureFunction():
 
 #exampleVisualization();
 exampleHRO2D();
-#exampleVisualization();
+exampleVisualization();
 
 
