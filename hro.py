@@ -17,6 +17,9 @@ from tqdm import tqdm
 from bvisual import *
 from poltools import *
 
+from scipy.stats import circmean
+from scipy.stats import circstd
+
 # ===================================================================================================
 def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='reflect', convention='Planck', debug=False):
     # Calculates the relative orientation angle between the density structures and the magnetic field following the method
@@ -84,7 +87,7 @@ def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='reflect', convention='Planck
        cbar.ax.set_title(r'$\phi$')
        plt.legend()
        plt.show()
-       import pdb; pdb.set_trace()
+       #import pdb; pdb.set_trace()
 
     return np.arctan(np.tan(phi))
 
@@ -146,23 +149,26 @@ def projRS(angles, w=None):
         w = np.ones_like(angles)
     assert w.shape == angles.shape, "Dimensions of phi and wgts must match"
 
-    Zx=circ.tests.vtest(angles, 0., w=w)[1]
-    Zy=circ.tests.vtest(angles, np.pi/2., w=w)[1]
+    circX=np.sum(w*np.cos(angles))/np.sum(w)
+    circY=np.sum(w*np.sin(angles))/np.sum(w)
+    mrl=np.sqrt(circX**2+circY**2)
 
-    temp=np.sum(w*np.cos(angles)**2)
-    s_Zx=np.sqrt((2.*temp-Zx**2)/np.sum(w))
+    Zx=np.sum(w*np.cos(angles))/np.sqrt(np.sum(w)/2.)
+    temp=np.sum(np.cos(angles)*np.cos(angles))
+    s_Zx=np.sqrt((2.*temp-Zx*Zx)/np.size(angles))
 
-    temp=np.sum(w*np.sin(angles)**2)
-    s_Zy=np.sqrt((2.*temp-Zy**2)/np.sum(w))
+    Zy=np.sum(w*np.sin(angles))/np.sqrt(np.sum(w)/2.)
+    temp=np.sum(np.sin(angles)*np.sin(angles))
+    s_Zy=np.sqrt((2.*temp-Zy*Zy)/np.size(angles))
 
-    x=np.sum(w*np.cos(angles))/np.sum(w)
-    y=np.sum(w*np.sin(angles))/np.sum(w)
-    mrl=circ.descriptive.resultant_vector_length(angles, w=w)
-    s_mrl=np.sqrt(np.sum(w*(np.cos(angles)-x)**2)+np.sum(w*(np.sin(angles)-y)**2))/np.sqrt(np.sum(w))
+    #x=np.sum(w*np.cos(angles))/np.sum(w)
+    #y=np.sum(w*np.sin(angles))/np.sum(w)
+    #mrl=circ.descriptive.resultant_vector_length(angles, w=w)
+    #s_mrl=np.sqrt(np.sum(w*(np.cos(angles)-x)**2)+np.sum(w*(np.sin(angles)-y)**2))/np.sqrt(np.sum(w))
 
-    meanphi=np.arctan2(y,x)
-    s_meanphi=np.sqrt(circ.descriptive.var(angles, w=w))
-    #s_meanphi=np.sqrt(Zx*Zx*s_Zy*s_Zy+Zy*Zy*s_Zx*s_Zx)/(Zx**2+Zy**2) 
+    meanphi=np.arctan2(circY,circX)
+    #s_meanphi=np.sqrt(circ.descriptive.var(angles, w=w))
+    s_meanphi=np.sqrt(Zx*Zx*s_Zy*s_Zy+Zy*Zy*s_Zx*s_Zx)/(Zx**2+Zy**2) 
     # using astropy
     #meanphi[i]=circstats.circmean(angles, weights=w[good])
     #s_meanphi=np.sqrt(circstats.circvar(angles, weights=w))
@@ -188,29 +194,35 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, show
    phi=roangles(Imap, Qmap, Umap, mask=mask, ksz=ksz, convention=convention, debug=debug)
 
    if segmap is None:
-      segmap=Imap.copy()
-   assert Imap.shape == segmap.shape, "Dimensions of Imap and segmap must match" 
+      stepmap=Imap.copy()
+   else:
+      assert Imap.shape == segmap.shape, "Dimensions of Imap and segmap must match" 
+      stepmap=segmap.copy()
 
    if np.array_equal(np.shape(Imap), np.shape(mask)):
-      bad=np.isnan(segmap).nonzero()
+      bad=np.isnan(Imap).nonzero()
+      mask[bad]=0.
+      bad=np.isnan(stepmap).nonzero()
       mask[bad]=0.
    else:
       mask=np.ones_like(Imap)
-      bad=np.isnan(segmap).nonzero()
+      bad=np.isnan(Imap).nonzero()
+      mask[bad]=0.
+      bad=np.isnan(stepmap).nonzero()
       mask[bad]=0.
 
    if minI is None:
-      minI=np.nanmin(segmap)
-   bad=(segmap <= minI).nonzero()
+      minI=np.nanmin(stepmap)
+   bad=(stepmap <= minI).nonzero()
    mask[bad]=0.
    bad=np.isnan(phi).nonzero()
    mask[bad]=0.
-   segmap[bad]=np.nan 
-   bad=np.isnan(segmap).nonzero()
-   mask[bad]=0.
 
    good=(mask > 0.).nonzero()
-   hist, bin_edges = np.histogram(segmap[good], bins=int(0.75*np.size(Imap)))     
+   bad=(mask < 1.).nonzero()
+   stepmap[bad]=np.nan
+
+   hist, bin_edges = np.histogram(stepmap[good], bins=int(0.75*np.size(Imap)))     
    bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
    chist=np.cumsum(hist)
    pitch=np.max(chist)/float(steps)
@@ -218,11 +230,11 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, show
    hsteps=pitch*np.arange(0,steps+1,1)	
    Isteps=np.zeros(steps+1)
 
-   for i in range(0, np.size(Isteps)-1):
+   for i in range(0,steps):
       good=np.logical_and(chist>hsteps[i], chist<=hsteps[i+1]).nonzero()
       Isteps[i]=np.min(bin_centre[good])	
 
-   Isteps[np.size(Isteps)-1]=np.nanmax(segmap)
+   Isteps[np.size(Isteps)-1]=np.nanmax(stepmap)
 
    # Preparing output of the HRO
    hros=np.zeros([steps,hsize])
@@ -241,8 +253,13 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, show
    cdens=np.zeros(steps)
 
    for i in range(0, np.size(Isteps)-1):
-
-      good=np.logical_and(segmap > Isteps[i], segmap <= Isteps[i+1]).nonzero()
+      #import pdb; pdb.set_trace()
+      temp=stepmap.copy()
+      temp[np.isnan(temp).nonzero()]=Isteps[i]
+      temp[(mask > 1.).nonzero()]=Isteps[i]
+      good=np.logical_and(temp > Isteps[i], temp <= Isteps[i+1]).nonzero()
+      #good=np.logical_and(segmap > Isteps[i], segmap <= Isteps[i+1]).nonzero()
+      
       print(np.size(good))   
  
       hist, bin_edges = np.histogram((180/np.pi)*phi[good], bins=hsize, range=(-90.,90.))	
@@ -261,8 +278,8 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, show
       Zy[i]=outprojRS['Zy']
       s_Zx[i]=outprojRS['s_Zx']
       s_Zy[i]=outprojRS['s_Zy']
-      meanphi[i]=0.5*outprojRS['meanphi']
-      s_meanphi[i]=0.5*outprojRS['s_meanphi']
+      meanphi[i]=0.5*circmean(2.*phi[good], low=-np.pi, high=np.pi)  #0.5*outprojRS['meanphi']
+      s_meanphi[i]=circstd(phi[good], low=0, high=np.pi/2.) #0.5*outprojRS['s_meanphi']
       mrl[i]=outprojRS['r']
 
  
