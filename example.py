@@ -47,7 +47,7 @@ def exampleHRO2D():
    mask[(logNHmap < np.mean(logNHmap))]=0.
 
    # HRO calculation
-   outputhro = hroLITE(logNHmap, Qmap, Umap, steps=20, minI=np.min(logNHmap), w=weights, mask=mask, ksz=pxksz)
+   outputhro = hroLITE(logNHmap, Qmap, -Umap, steps=20, minI=np.min(logNHmap), w=weights, mask=mask, ksz=pxksz)
 
    # --------------------------------
    # Calculation of the polarization angle 
@@ -75,14 +75,14 @@ def exampleHRO2D():
    ax1=plt.subplot(111, projection=WCS(hdrREF))
    im=ax1.imshow(np.abs(np.rad2deg(outputhro['Amap'])), origin='lower', cmap='cividis')
    ax1.contour(logNHmap, origin='lower', levels=[np.mean(logNHmap),np.mean(logNHmap)+1.0*np.std(logNHmap),np.mean(logNHmap)+2.0*np.std(logNHmap)], colors='white', linewidths=1.0)
-   ax1.quiver(xx, yy, gx, gy, units='width', color='red', pivot='middle', scale=25., headlength=0, headwidth=1, alpha=0.8, transform=ax1.get_transform('pixel'))
-   ax1.quiver(xx, yy, ux, uy, units='width', color='black', pivot='middle', scale=25., headlength=0, headwidth=1, transform=ax1.get_transform('pixel'))
+   ax1.quiver(xx, yy, gx, gy, units='width', color='red', pivot='middle', scale=25., headlength=0, headwidth=1, alpha=0.8, transform=ax1.get_transform('pixel'), label=r'$\nabla I$')
+   ax1.quiver(xx, yy, ux, uy, units='width', color='black', pivot='middle', scale=25., headlength=0, headwidth=1, transform=ax1.get_transform('pixel'), label=r'$B_{\perp}$')
    ax1.coords[0].set_axislabel(r'$l$')
    ax1.coords[1].set_axislabel(r'$b$')
    cbar=fig.colorbar(im, ax=ax1, fraction=0.046, pad=0.04)
    cbar.ax.set_title(r'$\phi$ [deg]')
+   plt.legend()
    plt.show() 
-   import pdb; pdb.set_trace()
 
    isteps=outputhro['csteps']
    icentres=0.5*(isteps[0:np.size(isteps)-1]+isteps[1:np.size(isteps)])
@@ -205,6 +205,6 @@ def exampleStructureFunction():
 
 #exampleVisualization();
 exampleHRO2D();
-exampleVisualization();
+#exampleVisualization();
 
 
