@@ -1,16 +1,14 @@
 # This file is part of MAGNETAR, the set of magnetic field analysis tools
 #
-# Copyright (C) 2013-2017 Juan Diego Soler
+# Copyright (C) 2013-2020 Juan Diego Soler
 
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import cm
-from astropy.io import fits
-#from astropy.convolution import convolve, convolve_fft
-#from astropy.convolution import Gaussian2DKernel
+from scipy import ndimage
 
 
-def roangles3D(dens, Bx, By, Bz):
+def roangles3D(dens, Bx, By, Bz, mode='nearest'):
     """
     Calculates the relative orientation angles between the density structures 
         and the magnetic field.
@@ -51,31 +49,30 @@ def roangles3D(dens, Bx, By, Bz):
     #
     #
     
-    grad=np.gradient(dens, edge_order=2)
-    
-    # JCIM - are you sure this is the order of the output? gx = [1], gy = [0] and gz = [2]?
     #gx=grad[1]; gy=grad[0]; gz=grad[2];
-    gx=grad[0]; gy=grad[1]; gz=grad[2];
-    
+    gx=ndimage.filters.gaussian_filter(cube1, [pxksz, pxksz, pxksz], order=[0,0,1], mode=mode)
+    gy=ndimage.filters.gaussian_filter(cube1, [pxksz, pxksz, pxksz], order=[0,1,0], mode=mode)
+    gz=ndimage.filters.gaussian_filter(cube1, [pxksz, pxksz, pxksz], order=[1,0,0], mode=mode)   
+
     normgrad=np.sqrt(gx*gx+gy*gy+gz*gz)
     normb   =np.sqrt(Bx*Bx+By*By+Bz*Bz)
     
     zerograd=(normgrad==0.).nonzero()	
     zerob   =(normb   ==0.).nonzero()
     
-    normcross=np.sqrt((gy*Bz-gz*By)**2+(gx*Bz-gz*Bx)**2+(gx*By-gy*Bx)**2)
-    normdot  =gx*Bx+gy*By+gz*Bz	
+    cross=np.sqrt((gy*Bz-gz*By)**2+(gx*Bz-gz*Bx)**2+(gx*By-gy*Bx)**2)
+    dot  =gx*Bx+gy*By+gz*Bz	
     
     # Here I calculate the angle using atan2 to avoid the numerical problems of acos or asin
     phigrad=np.arctan2(normcross,normdot) 
     
     # The cosine of the angle between the iso-density and B is the sine of the angle between
     # the density gradient and B.	
-    cosphi=np.sin(phigrad)
-    
-    # JCIM: what is this value 32768?
-    cosphi[(normgrad == 0.).nonzero()]=-32768
-    cosphi[(normb    == 0.).nonzero()]=-32768
+    #cosphi=np.sin(phigrad)
+    cosphi=dot/(normgrad*normb)   
+ 
+    cosphi[(normgrad == 0.).nonzero()]=np.nan
+    cosphi[(normb    == 0.).nonzero()]=np.nan
     
     return cosphi
 
