@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy import ndimage
 
 
-def roangles3D(dens, Bx, By, Bz, mode='nearest'):
+def roangles3D(dens, Bx, By, Bz, mode='nearest', pxksz=3):
     """
     Calculates the relative orientation angles between the density structures 
         and the magnetic field.
@@ -50,9 +50,9 @@ def roangles3D(dens, Bx, By, Bz, mode='nearest'):
     #
     
     #gx=grad[1]; gy=grad[0]; gz=grad[2];
-    gx=ndimage.filters.gaussian_filter(cube1, [pxksz, pxksz, pxksz], order=[0,0,1], mode=mode)
-    gy=ndimage.filters.gaussian_filter(cube1, [pxksz, pxksz, pxksz], order=[0,1,0], mode=mode)
-    gz=ndimage.filters.gaussian_filter(cube1, [pxksz, pxksz, pxksz], order=[1,0,0], mode=mode)   
+    gx=ndimage.filters.gaussian_filter(dens, [pxksz, pxksz, pxksz], order=[0,0,1], mode=mode)
+    gy=ndimage.filters.gaussian_filter(dens, [pxksz, pxksz, pxksz], order=[0,1,0], mode=mode)
+    gz=ndimage.filters.gaussian_filter(dens, [pxksz, pxksz, pxksz], order=[1,0,0], mode=mode)   
 
     normgrad=np.sqrt(gx*gx+gy*gy+gz*gz)
     normb   =np.sqrt(Bx*Bx+By*By+Bz*Bz)
