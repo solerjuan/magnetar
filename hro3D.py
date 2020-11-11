@@ -4,7 +4,10 @@
 
 import sys
 import numpy as np
+
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import cm 
+
 from scipy import ndimage
 
 
@@ -63,12 +66,8 @@ def roangles3D(dens, Bx, By, Bz, mode='nearest', pxksz=3):
     cross=np.sqrt((gy*Bz-gz*By)**2+(gx*Bz-gz*Bx)**2+(gx*By-gy*Bx)**2)
     dot  =gx*Bx+gy*By+gz*Bz	
     
-    # Here I calculate the angle using atan2 to avoid the numerical problems of acos or asin
-    phigrad=np.arctan2(normcross,normdot) 
-    
     # The cosine of the angle between the iso-density and B is the sine of the angle between
     # the density gradient and B.	
-    #cosphi=np.sin(phigrad)
     cosphi=dot/(normgrad*normb)   
  
     cosphi[(normgrad == 0.).nonzero()]=np.nan
@@ -131,7 +130,7 @@ def equibins(dens, steps=10, mind=0.):
     
     return dsteps
 
-def roparameter(cosphi, hist, s_cosphi=0.125):
+def roparameter(cosphi, hist, s_cosphi=0.25):
     """
     ...
     
@@ -151,14 +150,14 @@ def roparameter(cosphi, hist, s_cosphi=0.125):
     
     """
     	
-    para=(np.abs(cosphi)>1.-s_cosphi).nonzero()
-    perp=(np.abs(cosphi)<s_cosphi).nonzero()
+    perp=(np.abs(cosphi)>1.-s_cosphi).nonzero()
+    para=(np.abs(cosphi)<s_cosphi).nonzero()
     
     xi=(np.sum(hist[para])-np.sum(hist[perp]))/float(np.sum(hist[para])+np.sum(hist[perp]))
     
     return xi
 
-def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9]):
+def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3):
     """
     Calculate the histogram of relative orientations (HRO) in three-dimensional data.
 
@@ -186,7 +185,7 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9]):
 
     """
 
-    cosphi=roangles3D(dens, Bx, By, Bz)
+    cosphi=roangles3D(dens, Bx, By, Bz, pxksz=pxksz)
     dsteps=equibins(dens, steps=steps, mind=mind)
 
     hros  = np.zeros([steps,hsize])
@@ -195,13 +194,13 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9]):
     scube = 0.*dens
 
     for i in range(0, np.size(dsteps)-1):
-        good            = np.logical_and(dens>dsteps[i],dens<dsteps[i+1]).nonzero()
-        hist, bin_edges = np.histogram(cosphi[good], bins=hsize, range=(-1.,1.))	
-        bin_centre      = 0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
-        hros[i,:]       = hist
-        scube[good]     = i
-        cdens[i]        = np.mean([dsteps[i],dsteps[i+1]])
-        xi[i]           = roparameter(bin_centre, hist)
+        good=np.logical_and(dens>dsteps[i],dens<dsteps[i+1]).nonzero()
+        hist, bin_edges=np.histogram(cosphi[good], bins=hsize, range=(-1.,1.))	
+        bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
+        hros[i,:]=hist
+        scube[good]=i
+        cdens[i]=np.mean([dsteps[i],dsteps[i+1]])
+        xi[i]=roparameter(bin_centre, hist)
 
     outsteps = np.size(outh)
     color    = iter(cm.cool(np.linspace(0, 1, outsteps)))
@@ -209,22 +208,22 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9]):
     fig      = plt.figure()
     for i in range(0, outsteps):
         c         = next(color)
-        labeltext = str(dsteps[outh[i]])+' < n < '+str(dsteps[outh[i]+1]) 
+        labeltext = str(np.round(dsteps[outh[i]],2))+' < n < '+str(np.round(dsteps[outh[i]+1],2)) 
         plt.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
     plt.xlabel(r'cos($\phi$)')	
     plt.legend()
     plt.show()
 
-    fig=plt.figure()
-    plt.plot(cdens, xi, '-', linewidth=2, c=c)
-    plt.axhline(y=0., c='k', ls='--')	
-    plt.xlabel(r'log$_{10}$ ($n_{\rm H}/$cm$^{-3}$)')
-    plt.ylabel(r'$\zeta$')
+    fig = plt.figure(figsize=(8.0,4.0))
+    plt.rc('font', size=10)
+    ax1=plt.subplot(111)
+    ax1.semilogx(cdens, xi, 'o-', linewidth=2, color='blue')
+    ax1.axhline(y=0., c='k', ls='--')	
+    ax1.set_xlabel(r'log$_{10}$ ($n_{\rm H}/$cm$^{-3}$)')
+    ax1.set_ylabel(r'$\xi$')
     #plt.savefig(prefix + '-' + 'ROvsLogNH' + 'Thres' + "%d" % (thr) + '.png')
     plt.show()
 
-	# Do you mean xi or zeta?
-    #return hros, cdens, zeta
     return hros, cdens, xi
 
 
