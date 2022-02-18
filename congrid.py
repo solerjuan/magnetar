@@ -2,7 +2,7 @@ import numpy as n
 import scipy.interpolate
 import scipy.ndimage
 
-def congrid(a, newdims, method='linear', centre=False, minusone=False):
+def congrid(a, newdims, method='linear', centre=False, minusone=True):
     '''Arbitrary resampling of source array to new dimension sizes.
     Currently only supports maintaining the same number of dimensions.
     To use 1-D arrays, first promote them to shape (x,1).
@@ -31,7 +31,11 @@ def congrid(a, newdims, method='linear', centre=False, minusone=False):
     if not a.dtype in [n.float64, n.float32]:
         a = n.cast[float](a)
 
-    m1 = n.cast[int](minusone)
+    if minusone:
+       m1=1
+    else:
+       m1=0
+    #m1 = n.cast[int](minusone)
     ofs = n.cast[int](centre) * 0.5
     old = n.array( a.shape )
     ndims = len( a.shape )
@@ -44,7 +48,7 @@ def congrid(a, newdims, method='linear', centre=False, minusone=False):
     dimlist = []
 
     if method == 'neighbour':
-        for i in ange( ndims ):
+        for i in range( ndims ):
             base = n.indices(newdims)[i]
             dimlist.append( (old[i] - m1) / (newdims[i] - m1) \
                             * (base + ofs) - ofs )
@@ -54,15 +58,14 @@ def congrid(a, newdims, method='linear', centre=False, minusone=False):
 
     elif method in ['nearest','linear']:
         # calculate new dims
-        for i in range( ndims ):
-            base = n.arange( newdims[i] )
-            dimlist.append( (old[i] - m1) / (newdims[i] - m1) \
-                            * (base + ofs) - ofs )
+        for i in range(ndims):
+            base = n.arange(newdims[i] )
+            dimlist.append((old[i] - m1)/(newdims[i] - m1)*(base + ofs) - ofs)
         # specify old dims
         olddims = [n.arange(i, dtype = n.float) for i in list( a.shape )]
 
         # first interpolation - for ndims = any
-        mint = scipy.interpolate.interp1d( olddims[-1], a, kind=method )
+        mint = scipy.interpolate.interp1d(olddims[-1], a, kind=method)
         newa = mint( dimlist[-1] )
 
         trorder = [ndims - 1] + list(range( ndims - 1 ))

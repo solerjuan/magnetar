@@ -24,7 +24,7 @@ def planckct():
 
    return colombi1_cmap
 
-# ================================================================================================================================
+# ========================================================================================================================
 def lic(vx0, vy0, length=8, niter=1, normalize=True, amplitude=False, level=0.1, scalar=1, interpolation='nearest', inputmap=None, factor=1.):
    # Calculates the line integral convolution representation of the 2D vector field represented by Vx and Vy.
    # INPUTS
@@ -42,13 +42,15 @@ def lic(vx0, vy0, length=8, niter=1, normalize=True, amplitude=False, level=0.1,
 
    vx0[vxbad]=0.
    vy0[vybad]=0.
-
+ 
+   # ===============================================================================================
    if (factor==1.):
       vx=np.copy(vx0)
       vy=np.copy(vy0)
    else:
-      vx=congrid(vx0, np.array([int(sz[0]/licfactor),int(sz[1]/licfactor)]), method='linear')
-      vy=congrid(vy0, np.array([int(sz[0]/licfactor),int(sz[1]/licfactor)]), method='linear')
+      print('[LIC] Warning: rescaling input maps')
+      vx=congrid(vx0, np.array([int(factor*sz[0]),int(factor*sz[1])]), method='linear')
+      vy=congrid(vy0, np.array([int(factor*sz[0]),int(factor*sz[1])]), method='linear')
   
    # Assert new shape 
    sz=np.shape(vx)
