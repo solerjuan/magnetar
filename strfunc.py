@@ -9,6 +9,8 @@ from astropy.io import fits
 from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
 
+from tqdm import tqdm
+
 # ================================================================================================================================
 def strfunclist(xpos, ypos, psi, nsteps=10, EqualNbins=False):
 
@@ -67,7 +69,6 @@ def strfunclist(xpos, ypos, psi, nsteps=10, EqualNbins=False):
         dsteps=np.arange(np.min(distances[(distances > 0.).nonzero()]), nsteps, dpitch)
 
     print(dsteps)
-    #import pdb; pdb.set_trace()
 
     # -------------------------------------------------------------------------------------------------------------
     npairs=np.zeros(nsteps)
@@ -89,6 +90,7 @@ def strfunclist(xpos, ypos, psi, nsteps=10, EqualNbins=False):
             tempdeltapsi2=deltapsi2[good]
             #tempdeltapsi2=np.arctan(np.tan(np.sqrt(deltapsi2[good])))**2
             #print(np.max((180/np.pi)*tempdeltapsi2))
+            import pdb; pdb.set_trace()
             structFunc[i]=np.sqrt(np.mean(tempdeltapsi2))
                 
             A1=(np.sum(deltapsi)**2)*(s_psi**2)
@@ -99,8 +101,89 @@ def strfunclist(xpos, ypos, psi, nsteps=10, EqualNbins=False):
 
     return lag, structFunc, cosFunc
 
+# ======================================================================================================
+def AngleDispersionFunctionList(xpos, ypos, psi, lag, s_lag=None):
+    
+   if s_lag is None:
+      s_lag=0.10*lag
 
-# =================================================================================================================================
+   #Fix to include uncertainties
+   s_psi=5.*np.pi/180.
+
+   npos=np.size(xpos)
+  
+   distances=np.zeros([npos,npos])
+   deltapsi=np.zeros([npos,npos])
+   deltapsi2=np.zeros([npos,npos])
+   cospsi=np.zeros([npos,npos])
+   sinpsi=np.zeros([npos,npos])
+
+   stwo=np.zeros_like(xpos)
+
+   qint=np.sin(psi)**2 - np.cos(psi)**2
+   uint=-2.*np.cos(psi)*np.sin(psi)
+
+   pbar = tqdm(total=npos)
+
+   for i in range(0, npos):
+      deltax=xpos[i]-xpos
+      deltay=ypos[i]-ypos
+      dist=np.sqrt(deltax**2+deltay**2)
+      good=np.logical_and(dist>(lag-s_lag),dist<(lag+s_lag)).nonzero()
+      if np.size(good)==0:
+         dpsi=np.nan  
+      else:
+         dpsi=0.5*np.arctan2(qint[i]*uint[good]-qint[good]*uint[i], qint[i]*qint[good]+uint[i]*uint[good])
+      stwo[i]=np.sqrt(np.mean(dpsi**2))
+
+      distances[:,i]=dist
+      distances[i:npos,i]=0.
+  
+      deltapsi[i,:]=0.5*np.arctan2(qint[i]*uint-qint*uint[i], qint[i]*qint+uint[i]*uint)
+      deltapsi2[i,:]=(deltapsi[i,:])**2
+      cospsi[i,:]=np.cos(deltapsi[i,:])
+      sinpsi[i,:]=np.sin(deltapsi[i,:]) 
+
+      pbar.update()
+  
+   pbar.close()
+
+   return stwo
+   
+
+# ======================================================================================================
+def AngleDispersionFunction(Qmap, Umap, lag, header=None):
+   # Calculates the relative orientation angle between the density structures and the magnetic field.
+   # INPUTS
+   # Qmap - Stokes Q map
+   # Umap - Stokes U map
+   #
+   
+   psi=0.5*np.arctan2(Umap,Qmap)
+   sz=np.shape(psi)
+ 
+   i=np.arange(sz[0])
+   k=np.arange(sz[1])
+
+   if header is None:
+      x=pxsz*i/float(sz[0])
+      y=pxsz*k/float(sz[1]) 
+      
+   else:   
+      x=header['CRVAL1']+(np.arange(header['NAXIS1'])-header['CRPIX1'])*header['CDELT1'] 
+      y=header['CRVAL2']+(np.arange(header['NAXIS2'])-header['CRPIX2'])*header['CDELT2']
+
+   xx, yy = np.meshgrid(x, y) 
+  
+   stwo = AngleDispersionFunctionList(xx.ravel(), yy.ravel(), psi.ravel(), lag=lag)
+
+   stwomap=np.zeros_like(psi)
+   ii, kk = np.meshgrid(i, k)
+   stwomap[ii.ravel(),kk.ravel()]=stwo
+   
+   return stwomap 
+
+# ======================================================================================================
 def strfunc(Imap, Qmap, Umap, pxsz=1., nsteps=10, beamfwhm=1.):
     # Calculates the relative orientation angle between the density structures and the magnetic field.
     # INPUTS
@@ -143,13 +226,13 @@ from astropy.convolution import convolve_fft
 #Qmap=np.random.rand(npix,npix)-0.5
 #Umap=np.random.rand(npix,npix)-0.5
 
-Imap=fits.open('data/Taurusfwhm5_logNHmap.fits')[0].data
-Qmap=fits.open('data/Taurusfwhm10_Qmap.fits')[0].data
-Umap=fits.open('data/Taurusfwhm10_Umap.fits')[0].data
+#Imap=fits.open('data/Taurusfwhm5_logNHmap.fits')[0].data
+#Qmap=fits.open('data/Taurusfwhm10_Qmap.fits')[0].data
+#Umap=fits.open('data/Taurusfwhm10_Umap.fits')[0].data
 
 #import pdb; pdb.set_trace()
-pxksz=5
-strfunc(Imap, Qmap, Umap, nsteps=20, pxsz=1.)
+#pxksz=5
+#strfunc(Imap, Qmap, Umap, nsteps=20, pxsz=1.)
 #strfunc(Imap, convolve_fft(Qmap, Gaussian2DKernel(pxksz), boundary='wrap'), convolve_fft(Umap, Gaussian2DKernel(pxksz), boundary='wrap'), nsteps=npix, pxsz=1.)
 #strfunc(Imap, convolve_fft(Qmap, Gaussian2DKernel(pxksz), boundary='fill'), convolve_fft(Umap, Gaussian2DKernel(pxksz), boundary='fill'), nsteps=npix, pxsz=1.)
 

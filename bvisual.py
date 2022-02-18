@@ -10,6 +10,8 @@ from astropy.io import fits
 from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
 
+from congrid import *
+
 from scipy import interpolate
 from tqdm import tqdm
 
@@ -23,19 +25,32 @@ def planckct():
    return colombi1_cmap
 
 # ================================================================================================================================
-def lic(vx, vy, length=8, niter=1, normalize=True, amplitude=False, level=0.1, scalar=1, interpolation='nearest', inputmap=None):
+def lic(vx0, vy0, length=8, niter=1, normalize=True, amplitude=False, level=0.1, scalar=1, interpolation='nearest', inputmap=None, factor=1.):
    # Calculates the line integral convolution representation of the 2D vector field represented by Vx and Vy.
    # INPUTS
    # Vx     - X
    # Vy     - Y
    # length - L
+ 
+   # Check if the images match
+   assert vx0.shape == vy0.shape, "Dimensions of ima2 and ima1 must match"
+   sz=np.shape(vx0)
+   
+    # Identify bad pixels
+   vxbad=np.isnan(vx0).nonzero()
+   vybad=np.isnan(vy0).nonzero()
 
-   vxbad=np.isnan(vx).nonzero()
-   vybad=np.isnan(vy).nonzero()
+   vx0[vxbad]=0.
+   vy0[vybad]=0.
 
-   vx[vxbad]=0. 
-   vy[vybad]=0.
-
+   if (factor==1.):
+      vx=np.copy(vx0)
+      vy=np.copy(vy0)
+   else:
+      vx=congrid(vx0, np.array([int(sz[0]/licfactor),int(sz[1]/licfactor)]), method='linear')
+      vy=congrid(vy0, np.array([int(sz[0]/licfactor),int(sz[1]/licfactor)]), method='linear')
+  
+   # Assert new shape 
    sz=np.shape(vx)
 
    ni=sz[0]
@@ -164,6 +179,9 @@ def vectors(image, vx, vy, pitch=10, normalize=True, cmap='binary', savefile=Fal
    else:
       ux=vx/np.max(uu)
       uy=vy/np.max(uu)
+ 
+   ux[ii]=0.
+   uy[ii]=0.
  
    X, Y = np.meshgrid(np.arange(0, sz[1]-1, pitch), np.arange(0, sz[0]-1, pitch))
    ux0=ux[Y,X]

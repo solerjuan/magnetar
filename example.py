@@ -21,7 +21,7 @@ import imageio
 indir='data/'
 prefix='Taurusfwhm10'
 
-# ================================================================================================================================
+# =====================================================================================================================
 def exampleHRO2D():
 
    hdu=fits.open(indir+'Taurusfwhm5_logNHmap.fits')
@@ -45,6 +45,8 @@ def exampleHRO2D():
    # mask definition
    mask=np.ones_like(logNHmap)
    mask[(logNHmap < np.mean(logNHmap))]=0.
+
+   Qmap[:,0]=np.nan
 
    # HRO calculation
    outputhro = hroLITE(logNHmap, Qmap, -Umap, steps=20, minI=np.min(logNHmap), w=weights, mask=mask, ksz=pxksz)
@@ -102,7 +104,7 @@ def exampleHRO2D():
    #plt.plot(isteps, np.abs(meanphi)*180./np.pi, color='orange')
    #plt.show()
 
-# ================================================================================================================================
+# =========================================================================================================================
 def exampleVisualization():
 
    hdu=fits.open(indir+'Taurusfwhm5_logNHmap.fits')

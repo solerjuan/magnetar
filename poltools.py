@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.convolution import convolve, convolve_fft
 from astropy.convolution import Gaussian2DKernel
+from scipy import ndimage
 
 from astropy.wcs import WCS
 from astropy import units as u
@@ -21,14 +22,15 @@ def findclosedcontour(Imap, bins=100):
    minI=np.nan
    sz=np.shape(Imap)
 
-   good=np.isfinite(Imap)
-   hist, bin_edges = np.histogram(Imap[good], bins=bins, density=True)
+   good=np.isfinite(Imap).nonzero()
+   hist, bin_edges = np.histogram(Imap[good], bins=bins, density=True, range=[np.percentile(Imap[good], 5.), np.max(Imap[good])])
    bin_centres=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])   
 
    tempImap=Imap.copy()
-   tempImap[np.isnan(tempImap).nonzero()]=0. 
-   for i in range(0,bins):
-      positions=np.logical_and(tempImap>bin_edges[i],tempImap<bin_edges[i+1]).nonzero()   
+   tempImap[np.isnan(tempImap).nonzero()]=0. #np.min(Imap[good]) 
+
+   for i in range(0, bins):
+      positions=np.logical_and(tempImap>=bin_edges[i],tempImap<=bin_edges[i+1]).nonzero()   
 
       if (np.max(positions[0]+1) < sz[0]):
          if (np.size(np.isnan(Imap[positions[0]+1,positions[1]]).nonzero()) == 0):
@@ -45,27 +47,19 @@ def findclosedcontour(Imap, bins=100):
 
 
 # -----------------------------------------------------------------------------------------------------------
-def gradpoverp(Qmap, Umap, ksz=1):
+def gradpoverp(Qmap, Umap, ksz=1, mode='nearest'):
 
-   if (ksz <= 1):
-      sQmap=Qmap
-      sUmap=Umap
-   else:
-      sQmap=convolve_fft(Qmap, Gaussian2DKernel(float(ksz)))
-      sUmap=convolve_fft(Umap, Gaussian2DKernel(float(ksz)))
+   sQmap=ndimage.filters.gaussian_filter(Qmap, [ksz, ksz], order=[0,0], mode=mode)
+   dQdx =ndimage.filters.gaussian_filter(Qmap, [ksz, ksz], order=[0,1], mode=mode)
+   dQdy =ndimage.filters.gaussian_filter(Qmap, [ksz, ksz], order=[1,0], mode=mode)
+   normGradQ=np.sqrt(dQdx**2+dQdy**2)
 
-   P=np.sqrt(sQmap**2 + sUmap**2)
-  
-   gradQ=np.gradient(Qmap)
-   normGradQ=np.sqrt(gradQ[0]**2 + gradQ[1]**2)
-   dQdx=gradQ[0]
-   dQdy=gradQ[1]
+   sUmap=ndimage.filters.gaussian_filter(Umap, [ksz, ksz], order=[0,0], mode=mode)
+   dUdx =ndimage.filters.gaussian_filter(Umap, [ksz, ksz], order=[0,1], mode=mode)
+   dUdy =ndimage.filters.gaussian_filter(Umap, [ksz, ksz], order=[1,0], mode=mode)
+   normGradU=np.sqrt(dUdx**2+dUdy**2)
 
-   gradU=np.gradient(Umap)
-   normGradU=np.sqrt(gradU[0]**2 + gradU[1]**2)
-   dUdx=gradU[0]
-   dUdy=gradU[1]
-
+   P=np.sqrt(Qmap**2+Umap**2)   
    gradP=np.sqrt(dQdx**2 + dQdy**2 + dUdx**2 +dUdy**2)
 
    nopol=np.logical_or(normGradQ==0.,normGradU==0.).nonzero()
@@ -87,7 +81,11 @@ def anglediff(angle1, angle2):
 # -----------------------------------------------------------------------------------------------------------
 def anglemean(stokesq, stokesu):
 
-   return 0
+   meanq=np.mean(stokesq)
+   meanu=np.mean(stokesu)
+   meanpsi=0.5*np.arctan2(meanu,meanq) 
+ 
+   return meanpsi
 
 # -----------------------------------------------------------------------------------------------------------
 def angledispqu(stokesq, stokesu):
