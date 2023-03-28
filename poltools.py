@@ -17,6 +17,54 @@ from reproject import reproject_interp
 from bvisual import *
 
 # -----------------------------------------------------------------------------------------------------------
+def CalcPobs2(Qmap, Umap):
+# Calculate the polarized intensity
+
+   Pobs2=(Qmap**2+Umap**2)
+
+   return Pobs2
+
+# -----------------------------------------------------------------------------------------------------------
+def CalcPoverIobs2(Imap, Qmap, Umap):
+# Calculate the polarization fraction
+
+   Pobs2=CalcPobs2(Qmap, Umap)
+   PoverIobs2=Imap**2/Pobs2
+
+   return Pobs2
+
+# -----------------------------------------------------------------------------------------------------------
+def CalcSigmaP2(Qmap, Umap, s_Qmap, s_Umap, s_QUmap=None):
+# Calculate the uncertainty on the polarized intensity
+
+   Pobs2=CalcPobs2(Qmap, Umap)
+
+   if (s_QUmap==None):
+      sigmaP2=(Qmap**2*s_Qmap**2 + Umap**2*s_Umap**2)
+
+   else:
+      sigmaP2=(Qmap**2*s_Qmap**2 + Umap**2*s_Umap**2 + 2*Qmap*Umap*s_QUmap)
+
+   return sigmaP2
+
+# -----------------------------------------------------------------------------------------------------------
+def CalcSigmaPsi(Qmap, Umap, s_Qmap, s_Umap, s_QUmap=None):
+# Calculate the uncertainty on the polarization angle
+ 
+   if (s_QUmap==None):
+      tempUp=Qmap**2*s_Umap**2 + Umap**2*s_Qmap**2
+      tempDw=Qmap**2*s_Qmap**2 + Umap**2*s_Umap**2
+   
+   else:
+      tempUp=Qmap**2*s_Umap**2 + Umap**2*s_Qmap**2 - 2*Qmap*Umap*s_QUmap
+      tempDw=Qmap**2*s_Qmap**2 + Umap**2*s_Umap**2 + 2*Qmap*Umap*s_QUmap
+
+   sigmaP2=CalcSigmaP2(Qmap, Umap, s_Qmap, s_Umap)
+   sigmaPsi=28.65*np.sqrt(tempUp/tempDw)*np.sqrt(sigmaP2)
+
+   return sigmaPsi
+
+# -----------------------------------------------------------------------------------------------------------
 def findclosedcontour(Imap, bins=100):
  
    minI=np.nan
