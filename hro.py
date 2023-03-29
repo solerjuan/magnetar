@@ -364,6 +364,23 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
 
       pbar.close()  
 
+      if (debug==True):
+         bin_edges=hrooutput['csteps']
+         bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
+         fig = plt.figure(figsize=(8.0, 6.0)) #, dpi=150)
+         plt.rc('font', size=12)
+         ax1=plt.subplot(111)
+         for i in range(0,nruns):
+            ax1.plot(bin_centre, ZxvecMC[i,:], color='red', alpha=0.5, zorder=1)
+         ax1.plot(bin_centre, ZxvecMC.mean(axis=0), color='black', zorder=2)
+         ax1.axhline(y=0, color='grey', alpha=0.5, zorder=0)
+         ax1.axhline(y= 2.87, color='grey', alpha=0.5, linestyle='dashed', zorder=0)
+         ax1.axhline(y=-2.87, color='grey', alpha=0.5, linestyle='dashed', zorder=0)
+         ax1.set_xlabel(r'$\log_{10}(N_{\rm H})$')
+         ax1.set_ylabel(r'$Z_{x}$')
+         plt.subplots_adjust(left=0.11, bottom=0.09, right=0.97, top=0.97)
+         plt.show()
+  
       zeta=zetavecMC.mean(axis=0)
       Zx=ZxvecMC.mean(axis=0)
       Zy=ZyvecMC.mean(axis=0)
@@ -373,9 +390,9 @@ def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, co
       Amap=circstats.circmean(Acube, axis=0)
  
       if (errorbar=='MC'):
-         s_zeta=s_zetavecMC.std(axis=0)
-         s_Zx=s_ZxvecMC.std(axis=0)
-         s_Zy=s_ZyvecMC.std(axis=0)
+         s_zeta=zetavecMC.std(axis=0)
+         s_Zx=ZxvecMC.std(axis=0)
+         s_Zy=ZyvecMC.std(axis=0)
          s_meanphi=circ.descriptive.mean(s_mphivecMC, axis=0)
       else:
          s_zeta=hrooutput['s_xi']         #np.max([s_zetavecMC.std(axis=0),hrooutput['s_xi']], axis=0)
