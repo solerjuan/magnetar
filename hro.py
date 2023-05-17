@@ -21,7 +21,7 @@ from scipy.stats import circmean
 from scipy.stats import circstd
 
 # ===================================================================================================
-def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='reflect', convention='Planck', debug=False):
+def roangles(Imap, Qmap, Umap, ksz=1, mask=None, mode='reflect', convention='Planck', debug=False):
     # Calculates the relative orientation angle between the density structures and the magnetic field following the method
     # presented in Soler, et al. ApJ 774 (2013) 128S
     #
@@ -32,7 +32,7 @@ def roangles(Imap, Qmap, Umap, ksz=1, mask=0, mode='reflect', convention='Planck
     # OUTPUTS
     # phi - relative orientation angle between the column density and projected magnetic field.
 
-    if (mask is 0):
+    if (mask is None):
        mask=np.ones_like(Imap)
    
     psi=0.5*np.arctan2(Umap,Qmap)	
@@ -127,9 +127,13 @@ def roparameter(phi, hist, s_phi=20.):
 
     perp=(np.abs(phi) > 90.-s_phi).nonzero()
     para=(np.abs(phi) < s_phi).nonzero()
-    xi=float(np.mean(hist[para])-np.mean(hist[perp]))/float(np.mean(hist[para])+np.mean(hist[perp]))
-  
-    s_xi=2.*np.sqrt((np.mean(hist[para])*np.std(hist[perp]))**2+(np.mean(hist[perp])*np.std(hist[para]))**2)/(np.mean(hist[para])+np.mean(hist[perp]))**2
+    temp=float(np.mean(hist[para])+np.mean(hist[perp]))
+    if (temp > 0.): 
+       xi=float(np.mean(hist[para])-np.mean(hist[perp]))/float(np.mean(hist[para])+np.mean(hist[perp]))
+       s_xi=2.*np.sqrt((np.mean(hist[para])*np.std(hist[perp]))**2+(np.mean(hist[perp])*np.std(hist[para]))**2)/(np.mean(hist[para])+np.mean(hist[perp]))**2
+    else:
+       xi=np.nan
+       s_xi=np.nan
 
     return xi, s_xi
 
@@ -198,6 +202,10 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, show
    else:
       assert Imap.shape == segmap.shape, "Dimensions of Imap and segmap must match" 
       stepmap=segmap.copy()
+   
+   if (minI is None):
+      print("Minimum value not specified")
+      minI=np.nanmin(stepmap[(mask > 0.).nonzero()])
 
    if np.array_equal(np.shape(Imap), np.shape(mask)):
       bad=np.isnan(Imap).nonzero()
@@ -260,7 +268,7 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, show
       good=np.logical_and(temp > Isteps[i], temp <= Isteps[i+1]).nonzero()
       #good=np.logical_and(segmap > Isteps[i], segmap <= Isteps[i+1]).nonzero()
       
-      print(np.size(good))   
+      #print(np.size(good))   
  
       hist, bin_edges = np.histogram((180/np.pi)*phi[good], bins=hsize, range=(-90.,90.))	
       bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
@@ -287,7 +295,7 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, show
 
 
 # ==================================================================================================
-def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=0., mask=0, ksz=1, w=None, convention='Planck', sigmaQQ=None, sigmaUU=None, mcflag=None, nruns=10, errorbar=None, segmap=None, debug=False):
+def hro(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, w=None, convention='Planck', sigmaQQ=None, sigmaUU=None, mcflag=None, nruns=10, errorbar=None, segmap=None, debug=False):
 
    #if (convention=='Planck'):
    #   Qmap0=Qmap
