@@ -188,9 +188,10 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3):
     cosphi=roangles3D(dens, Bx, By, Bz, pxksz=pxksz)
     dsteps=equibins(dens, steps=steps, mind=mind)
 
-    hros  = np.zeros([steps,hsize])
-    cdens = np.zeros(steps)
-    xi    = np.zeros(steps)
+    hros   =np.zeros([steps,hsize])
+    cdens  =np.zeros(steps)
+    xi     =np.zeros(steps)
+    meancos=np.zeros(steps)
     scube = 0.*dens
 
     for i in range(0, np.size(dsteps)-1):
@@ -201,6 +202,7 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3):
         scube[good]=i
         cdens[i]=np.mean([dsteps[i],dsteps[i+1]])
         xi[i]=roparameter(bin_centre, hist)
+        meancos[i]=np.mean(cosphi[good]) 
 
     outsteps = np.size(outh)
     color    = iter(cm.cool(np.linspace(0, 1, outsteps)))
@@ -224,6 +226,15 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3):
     #plt.savefig(prefix + '-' + 'ROvsLogNH' + 'Thres' + "%d" % (thr) + '.png')
     plt.show()
 
+    fig = plt.figure(figsize=(8.0,4.0))
+    plt.rc('font', size=10)
+    ax1=plt.subplot(111)
+    ax1.semilogx(cdens, meancos, 'o-', linewidth=2, color='blue')
+    ax1.axhline(y=0., c='k', ls='--')  
+    ax1.set_xlabel(r'log$_{10}$ ($n_{\rm H}/$cm$^{-3}$)')
+    ax1.set_ylabel(r'$\left<\cos\theta\right>$')
+    plt.show()
+  
     return hros, cdens, xi
 
 
