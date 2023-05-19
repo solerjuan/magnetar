@@ -61,8 +61,9 @@ def roangles(Imap, Qmap, Umap, ksz=1, mask=None, mode='reflect', convention='Pla
     phi[bad]=np.nan
     bad=((Qmap**2+Umap**2)==0.).nonzero()
     phi[bad]=np.nan
-    bad=(mask < 1.).nonzero()
-    phi[bad]=np.nan
+    if np.any(mask < 1.):
+       bad=(mask < 1.).nonzero()
+       phi[bad]=np.nan
 
     # ------------------------------------------------------------------------------------
     vecpitch=10
@@ -180,7 +181,7 @@ def projRS(angles, w=None):
     return {'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'r': mrl}
 
 # ===================================================================================================
-def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=0, ksz=1, showplots=False, w=None, convention='Planck', outh=[0,4,9], savefig=False, prefix='', segmap=None, debug=False):
+def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=None, ksz=1, showplots=False, w=None, convention='Planck', outh=[0,4,9], savefig=False, prefix='', segmap=None, debug=False):
    # Calculates the relative orientation angle between the density structures and the magnetic field.
    # INPUTS
    # Imap - Intensity or column density map
