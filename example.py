@@ -148,6 +148,7 @@ def exampleStructureFunction():
    hdu=fits.open('../PlanckHerschelGouldBelt/Orion/Orionfwhm10_Imap.fits')
    Imap0=hdu[0].data
    hdrI=hdu[0].header
+    import pdb; pdb.set_trace()
    hdu=fits.open('../PlanckHerschelGouldBelt/Orion/Orionfwhm10_Qmap.fits')
    Qmap0=hdu[0].data
    hdu=fits.open('../PlanckHerschelGouldBelt/Orion/Orionfwhm10_Umap.fits')

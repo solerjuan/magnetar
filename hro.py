@@ -242,8 +242,11 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=None, ksz=1, s
    for i in range(0,steps):
       good=np.logical_and(chist>hsteps[i], chist<=hsteps[i+1]).nonzero()
       Isteps[i]=np.min(bin_centre[good])	
-
    Isteps[np.size(Isteps)-1]=np.nanmax(stepmap)
+
+   for i in range(0,steps+1):
+      diff=np.abs(i*pitch-chist)
+      Isteps[i]=np.mean(bin_centre[(diff==np.nanmin(diff)).nonzero()])
 
    # Preparing output of the HRO
    hros=np.zeros([steps,hsize])

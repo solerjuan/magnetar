@@ -137,13 +137,12 @@ def structurefunction(Qmap, Umap, lag=4.0, s_lag=1.0, mask=None, header=None):
    sz=np.shape(Qmap)
 
    if header is None:
-      posx, posy=np.meshgrid(np.arange(0,sz[0]), np.arange(0,sz[0])) 
+      posx, posy = np.meshgrid(np.arange(0,sz[0]), np.arange(0,sz[1])) 
    else:
       ra=header['CRVAL1']+header['CDELT1']*(np.arange(header['NAXIS1'])-header['CRPIX1'])
       dec=header['CRVAL2']+header['CDELT2']*(np.arange(header['NAXIS2'])-header['CRPIX2'])
       posx, posy=np.meshgrid(ra, dec)
 
-   
    x1, x2 =np.meshgrid(posx.ravel(), posx.ravel()) 
    deltax=(x1-x2)
    x1=None; x2=None
@@ -153,7 +152,7 @@ def structurefunction(Qmap, Umap, lag=4.0, s_lag=1.0, mask=None, header=None):
    print('Calculation of distances')
    dist=np.sqrt(deltax**2+deltay**2)
    deltax=None; deltay=None;
-   
+
    good1, good2 = np.logical_and(dist >= lag-s_lag, dist < lag+s_lag).nonzero()
 
    maskvec=mask.ravel() 
