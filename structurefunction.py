@@ -155,6 +155,9 @@ def structurefunction(Qmap, Umap, lag=4.0, s_lag=1.0, mask=None, header=None):
 
    good1, good2 = np.logical_and(dist >= lag-s_lag, dist < lag+s_lag).nonzero()
 
+   stwo=np.nan
+   ngood=0.
+
    maskvec=mask.ravel() 
    Qvec=Qmap.ravel(); Qvec[maskvec > 1.]=np.nan
    Uvec=Umap.ravel(); Uvec[maskvec > 1.]=np.nan
@@ -167,24 +170,26 @@ def structurefunction(Qmap, Umap, lag=4.0, s_lag=1.0, mask=None, header=None):
       U2=Uvec[good2]
       good=np.logical_and(np.logical_and(np.isfinite(Q1),np.isfinite(Q2)),np.logical_and(np.isfinite(U1),np.isfinite(U2))).nonzero()
       deltapsi=0.5*np.arctan2(Q1[good]*U2[good]-Q2[good]*U1[good], Q1[good]*Q2[good]+U1[good]*U2[good])
+      ngood=np.size(good)
       #deltapsi=0.5*np.arctan2(Qvec[good1]*Uvec[good2]-Qvec[good2]*Uvec[good1], Qvec[good1]*Qvec[good2]+Uvec[good1]*Uvec[good2])
       #import pdb; pdb.set_trace()
+
+      # From Eq. (6) in Planck XIX. A&A 576 (2015) A104
+      gooddeltapsi=deltapsi[np.isfinite(deltapsi).nonzero()]
+      weights=0.5*np.ones_like(gooddeltapsi)   
+      #stwo=np.std(deltapsi)
+      stwo=np.sqrt(np.sum(weights*gooddeltapsi**2)/np.sum(weights))
+
    else:
       print("No points in the selected lag range")
-      return np.nan 
 
-   # From Eq. (6) in Planck XIX. A&A 576 (2015) A104
-   gooddeltapsi=deltapsi[np.isfinite(deltapsi).nonzero()]
-   weights=0.5*np.ones_like(gooddeltapsi)   
-   #stwo=np.std(deltapsi)
-   stwo=np.sqrt(np.sum(weights*gooddeltapsi**2)/np.sum(weights)) 
-
-   print(stwo)
+   #print(stwo)
    from scipy.stats import circstd
-   print(circstd)
+   #print(circstd)
    #import pdb; pdb.set_trace()
 
-   return stwo
+   #return stwo
+   return {'S2': stwo, 'npairs': ngood}  
 
 # ------------------------------------------------------------------------------------------------------------------------------
 def OLDstructurefunction(Qmap, Umap, lag=1.0, s_lag=0.5, mask=0.0, pitch=1.0):
