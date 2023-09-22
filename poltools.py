@@ -147,6 +147,16 @@ def angledispqu(stokesq, stokesu):
    return disp 
 
 # ------------------------------------------------------------------------------------------------------------
+def angledisp(angles):
+    
+   cosa=np.nanmean(np.cos(angles))
+   sina=np.nanmean(np.sin(angles))
+
+   stddev=np.sqrt(-np.log(cosa*cosa+sina*sina))   
+
+   return stddev
+
+# ------------------------------------------------------------------------------------------------------------
 def polgal2equ(Imap, Qmap, Umap, header):
 
    glon=header['CRVAL1']+header['CDELT1']*(np.arange(header['NAXIS1'])-header['CRPIX1'])
