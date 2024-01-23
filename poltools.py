@@ -127,7 +127,40 @@ def anglediff(angle1, angle2):
    return phi
 
 # -----------------------------------------------------------------------------------------------------------
-def anglemean(stokesq, stokesu):
+def polanglediff(angle1, angle2):
+
+   Q1=np.cos(2.*angle1)
+   U1=np.sin(2.*angle1)
+
+   Q2=np.cos(2.*angle2)
+   U2=np.sin(2.*angle2)
+
+   phi=0.5*np.arctan2(U2-U1,Q2-Q1)
+ 
+   return phi
+
+# -----------------------------------------------------------------------------------------------------------
+def polanglemean(angles):
+
+   x=np.cos(2.*angles)
+   y=np.sin(2.*angles)
+
+   meanpsi=0.5*np.arctan2(np.sum(y),np.sum(x))
+
+   return meanpsi
+
+# --------------------------------------------------------------------------------------------------------
+def anglemean(angles):
+
+   x=np.cos(angles)
+   y=np.sin(angles)
+
+   meanpsi=np.arctan2(np.sum(y),np.sum(x))
+
+   return meanpsi
+
+# --------------------------------------------------------------------------------------------------------
+def anglemeanqu(stokesq, stokesu):
 
    meanq=np.mean(stokesq)
    meanu=np.mean(stokesu)
