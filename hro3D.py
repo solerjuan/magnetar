@@ -157,7 +157,7 @@ def roparameter(cosphi, hist, s_cosphi=0.25):
     
     return xi
 
-def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3):
+def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3, label=r'$n$'):
     """
     Calculate the histogram of relative orientations (HRO) in three-dimensional data.
 
@@ -207,22 +207,29 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3):
     outsteps = np.size(outh)
     color    = iter(cm.cool(np.linspace(0, 1, outsteps)))
 
-    fig      = plt.figure()
+    fig = plt.figure(figsize=(6.0,6.0))
+    plt.rc('font', size=10)
+    ax1=plt.subplot(111)
     for i in range(0, outsteps):
-        c         = next(color)
-        labeltext = str(np.round(dsteps[outh[i]],2))+' < n < '+str(np.round(dsteps[outh[i]+1],2)) 
-        plt.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
-    plt.xlabel(r'cos($\phi$)')	
-    plt.legend()
+        c = next(color)
+        labeltext = str(np.round(dsteps[outh[i]],2))+' < '+label+' < '+str(np.round(dsteps[outh[i]+1],2)) 
+        ax1.plot(bin_centre, hros[outh[i],:], '-', linewidth=2, c=c, label=labeltext) #drawstyle
+    ax1.set_xlabel(r'cos($\phi$)')
+    ax1.set_ylabel('Counts')
+    ax1.tick_params(axis='y', labelrotation=90) 
+    ax1.legend()
+    plt.tight_layout()
     plt.show()
 
     fig = plt.figure(figsize=(8.0,4.0))
     plt.rc('font', size=10)
     ax1=plt.subplot(111)
     ax1.semilogx(cdens, xi, 'o-', linewidth=2, color='blue')
+    ax1.tick_params(axis='y', labelrotation=90) 
     ax1.axhline(y=0., c='k', ls='--')	
     ax1.set_xlabel(r'log$_{10}$ ($n_{\rm H}/$cm$^{-3}$)')
     ax1.set_ylabel(r'$\xi$')
+    plt.tight_layout()
     #plt.savefig(prefix + '-' + 'ROvsLogNH' + 'Thres' + "%d" % (thr) + '.png')
     plt.show()
 
@@ -230,9 +237,11 @@ def hro3D(dens, Bx, By, Bz, steps=10, hsize=21, mind=0, outh=[0,4,9], pxksz=3):
     plt.rc('font', size=10)
     ax1=plt.subplot(111)
     ax1.semilogx(cdens, meancos, 'o-', linewidth=2, color='blue')
+    ax1.tick_params(axis='y', labelrotation=90)
     ax1.axhline(y=0., c='k', ls='--')  
     ax1.set_xlabel(r'log$_{10}$ ($n_{\rm H}/$cm$^{-3}$)')
     ax1.set_ylabel(r'$\left<\cos\theta\right>$')
+    plt.tight_layout()
     plt.show()
   
     return hros, cdens, xi
