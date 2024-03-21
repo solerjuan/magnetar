@@ -18,7 +18,7 @@ from tqdm import tqdm
 # ================================================================================================================================
 def planckct():
 
-   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt('Planck_Parchment_RGB.txt')/255.)
+   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt('./Planck_Parchment_RGB.txt')/255.)
    colombi1_cmap.set_bad('white') # color of missing pixels
    colombi1_cmap.set_under("blue")
 
