@@ -2,6 +2,9 @@
 #
 # Copyright (C) 2013-2017 Juan Diego Soler
 
+import os
+import sys
+
 import numpy as np
 import matplotlib as matplotlib
 import matplotlib.pyplot as plt
@@ -15,16 +18,16 @@ from congrid import *
 from scipy import interpolate
 from tqdm import tqdm
 
-# ================================================================================================================================
+# ============================================================================================
 def planckct():
 
-   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt('Planck_Parchment_RGB.txt')/255.)
+   colombi1_cmap = matplotlib.colors.ListedColormap(np.loadtxt(os.path.dirname(__file__)+"/Planck_Parchment_RGB.txt")/255.)
    colombi1_cmap.set_bad('white') # color of missing pixels
    colombi1_cmap.set_under("blue")
 
    return colombi1_cmap
 
-# ========================================================================================================================
+# =============================================================================================
 def lic(vx0, vy0, length=8, niter=1, normalize=True, amplitude=False, level=0.1, scalar=1, interpolation='nearest', inputmap=None, factor=1.):
    # Calculates the line integral convolution representation of the 2D vector field represented by Vx and Vy.
    # INPUTS
