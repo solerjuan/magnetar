@@ -264,6 +264,8 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=None, ksz=1, s
    mrl=np.zeros(steps)
    cdens=np.zeros(steps)
 
+   Vd=np.zeros(steps)
+
    for i in range(0, np.size(Isteps)-1):
       #import pdb; pdb.set_trace()
       temp=stepmap.copy()
@@ -294,8 +296,10 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=None, ksz=1, s
       s_meanphi[i]=circstd(phi[good], low=0, high=np.pi/2.) #0.5*outprojRS['s_meanphi']
       mrl[i]=outprojRS['r']
 
+      outprojRS0 = projRS(phi[good], w=w[good])
+      Vd[i]=outprojRS0['Zx']
  
-   return {'csteps': Isteps, 'xi': xi, 's_xi': s_xi, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'asteps': bin_centre, 'hros': hros, 's_hros': s_hros, 'mrl': mrl, 'Smap': Smap, 'Amap': phi} 
+   return {'csteps': Isteps, 'xi': xi, 's_xi': s_xi, 'Zx': Zx, 's_Zx': s_Zx, 'Zy': Zy, 's_Zy': s_Zy, 'meanphi': meanphi, 's_meanphi': s_meanphi, 'Vd': Vd, 'asteps': bin_centre, 'hros': hros, 's_hros': s_hros, 'mrl': mrl, 'Smap': Smap, 'Amap': phi} 
 
 
 # ==================================================================================================
