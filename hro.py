@@ -235,7 +235,7 @@ def hroLITE(Imap, Qmap, Umap, steps=10, hsize=15, minI=None, mask=None, ksz=1, s
    bin_centre=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
    chist=np.cumsum(hist)
    pitch=np.max(chist)/float(steps)
-
+   
    hsteps=pitch*np.arange(0,steps+1,1)	
    Isteps=np.zeros(steps+1)
 

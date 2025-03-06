@@ -19,6 +19,107 @@ from bvisual import *
 from poltools import *
 from astropy.wcs import WCS
 
+from tqdm import tqdm
+
+# # ----------------------------------------------------------------------------------------
+def s2l(Qmap, Umap, lags=[4.0], s_lag=1.0, mask=None, header=None):
+
+   assert Qmap.shape == Umap.shape, "Dimensions of Qmap and Umap must match"
+
+   sz=np.shape(Qmap)
+   QmapRAND=(np.random.rand(sz[0],sz[1])-0.5)
+   UmapRAND=(np.random.rand(sz[0],sz[1])-0.5)
+
+   if mask is None:
+      mask=np.ones_like(Qmap)
+   assert Qmap.shape == mask.shape, "Dimensions of mask and Qmap must match"
+   Qmap[(mask==0.).nonzero()]=np.nan
+   Umap[(mask==0.).nonzero()]=np.nan
+   
+   # ------------------------------------------------------------------------------------------------
+   if header is None:
+      posx, posy=np.meshgrid(np.arange(0,sz[0]), np.arange(0,sz[1]))
+   else:
+      ra=header['CRVAL1']+header['CDELT1']*(np.arange(header['NAXIS1'])-header['CRPIX1'])
+      dec=header['CRVAL2']+header['CDELT2']*(np.arange(header['NAXIS2'])-header['CRPIX2'])
+      posx, posy=np.meshgrid(ra, dec)
+
+   # ----------------------------------------------------------------------
+   dist=np.zeros(np.size(posx)*np.size(posx))
+
+   for i in tqdm(range(0,np.size(posx))):
+      tempdeltax=posx.ravel()[i]-posx.ravel()
+      tempdeltay=posy.ravel()[i]-posy.ravel()
+      dist[i*np.size(posx):(i+1)*np.size(posx)]=np.sqrt(tempdeltax**2+tempdeltay**2)
+   posx=None
+   posy=None
+
+   # ----------------------------------------------------------------------------------------------
+   stwo=np.nan
+   stwoRAND=np.nan
+   stwoarr=np.nan*np.zeros_like(lags)
+   stwoRANDarr=np.nan*np.zeros_like(lags)   
+   ngood=np.nan*np.zeros_like(lags)
+
+   dhist, bin_edges=np.histogram(dist, bins=100)
+   bin_centers=0.5*(bin_edges[0:np.size(bin_edges)-1]+bin_edges[1:np.size(bin_edges)])
+ 
+   for i in range(0,np.size(lags)):
+      print('Lag between', lags[i]-s_lag, 'and', lags[i]+s_lag)
+      #good=(np.abs(dist-lags[i]) < s_lag).nonzero()
+      good = np.logical_and(dist >= lags[i]-s_lag, dist < lags[i]+s_lag).nonzero()
+      #good1, good2 = np.logical_and(dist >= lags[i]-s_lag, dist < lags[i]+s_lag).nonzero()
+
+      good1=good[0]%(sz[0]*sz[0]);
+      good2=(good[0]/(sz[0]*sz[0])).astype(int);
+
+      maskvec=mask.ravel()
+      Qvec=Qmap.ravel(); Qvec[maskvec > 1.]=np.nan
+      Uvec=Umap.ravel(); Uvec[maskvec > 1.]=np.nan
+      QvecRAND=QmapRAND.ravel(); QvecRAND[maskvec > 1.]=np.nan
+      UvecRAND=UmapRAND.ravel(); UvecRAND[maskvec > 1.]=np.nan 
+
+      if np.logical_and(np.size(good1) > 0, np.size(good2) > 0):
+          # --------------------------------------------------------------------------------
+         Q1=Qvec[good1]
+         U1=Uvec[good1]
+         Q2=Qvec[good2]
+         U2=Uvec[good2]
+         good=np.logical_and(np.logical_and(np.isfinite(Q1),np.isfinite(Q2)),np.logical_and(np.isfinite(U1),np.isfinite(U2))).nonzero()
+         # From Eq. (11) in Planck XIX. A&A 576 (2015) A104
+         deltapsi=0.5*np.arctan2(Q1[good]*U2[good]-Q2[good]*U1[good], Q1[good]*Q2[good]+U1[good]*U2[good])
+
+         # From Eq. (6) in Planck XIX. A&A 576 (2015) A104
+         gooddeltapsi=deltapsi[np.isfinite(deltapsi).nonzero()]
+         weights=0.5*np.ones_like(gooddeltapsi)
+         stwo=np.sqrt(np.sum(weights*gooddeltapsi**2)/np.sum(weights))
+
+         # --------------------------------------------------------------------------------
+         Q1=QvecRAND[good1]
+         U1=UvecRAND[good1]
+         Q2=QvecRAND[good2]
+         U2=UvecRAND[good2]
+         good=np.logical_and(np.logical_and(np.isfinite(Q1),np.isfinite(Q2)),np.logical_and(np.isfinite(U1),np.isfinite(U2))).nonzero()
+         # From Eq. (11) in Planck XIX. A&A 576 (2015) A104
+         deltapsiRAND=0.5*np.arctan2(Q1[good]*U2[good]-Q2[good]*U1[good], Q1[good]*Q2[good]+U1[good]*U2[good])
+
+         # From Eq. (6) in Planck XIX. A&A 576 (2015) A104
+         gooddeltapsiRAND=deltapsiRAND[np.isfinite(deltapsiRAND).nonzero()]
+         weights=0.5*np.ones_like(gooddeltapsiRAND)
+         stwoRAND=np.sqrt(np.sum(weights*gooddeltapsiRAND**2)/np.sum(weights))
+
+      else:
+         print("No points in the selected lag range")
+         stwo=np.nan
+         stwoRAND=np.nan
+
+      ngood[i]=np.size(good)
+      stwoarr[i]=stwo
+      stwoRANDarr[i]=stwoRAND
+
+   return {'S2': stwoarr, 'S2rand': stwoRANDarr, 'npairs': ngood}
+
+# ----------------------------------------------------------------------------------------
 def s2(Qmap, Umap, lags=[4.0], s_lag=1.0, mask=None, header=None):
 
    assert Qmap.shape == Umap.shape, "Dimensions of Qmap and Umap must match"

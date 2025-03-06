@@ -189,7 +189,7 @@ def angledisp(angles):
 
    return stddev
 
-# ------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 def polgal2equ(Imap, Qmap, Umap, header):
 
    glon=header['CRVAL1']+header['CDELT1']*(np.arange(header['NAXIS1'])-header['CRPIX1'])
@@ -264,4 +264,32 @@ def polgal2equ(Imap, Qmap, Umap, header):
    return Imap_equ, Qmap_equ, Umap_equ, hdrOUT
 
    #import pdb; pdb.set_trace()
+
+# ----------------------------------------------------------------
+def polequ2gal(ravec, decvec, qvec, uvec):
+
+   c_equ=SkyCoord(ra=ravec*u.degree, dec=decvec*u.degree, frame='fk5')
+   c_gal=c_equ.transform_to('galactic')
+
+   hduOUT=fits.PrimaryHDU(Imap)
+   hduOUT.header['CTYPE1']='RA---CAR'
+   hduOUT.header['CTYPE2']='DEC--CAR'
+   hduOUT.header['CRPIX1']=hduOUT.header['NAXIS1']/2.
+   hduOUT.header['CRPIX2']=hduOUT.header['NAXIS2']/2.
+   hduOUT.header['CRVAL1']=c_equ.ra.value
+   hduOUT.header['CRVAL2']=c_equ.dec.value
+   hduOUT.header['CDELT1']=header['CDELT1']
+   hduOUT.header['CDELT2']=header['CDELT2']
+   hdrOUT=hduOUT.header
+
+   ra=hdrOUT['CRVAL1']+hdrOUT['CDELT1']*(np.arange(hdrOUT['NAXIS1'])-hdrOUT['CRPIX1'])
+   dec=hdrOUT['CRVAL2']+hdrOUT['CDELT2']*(np.arange(hdrOUT['NAXIS2'])-hdrOUT['CRPIX2'])
+
+   hduIN=fits.PrimaryHDU(Imap)
+   hduIN.header=header
+   Imap_equ, footprintI = reproject_interp(hduIN, hdrOUT)
+
+   psi_gal=0.5*np.arctan2(-Umap,Qmap)
+   p_gal=np.sqrt(Qmap**2+Umap**2)
+
 
