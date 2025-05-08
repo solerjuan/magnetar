@@ -29,14 +29,16 @@ def congrid(a, newdims, method='linear', centre=False, minusone=True):
     This prevents extrapolation one element beyond bounds of input array.
     '''
     if not a.dtype in [n.float64, n.float32]:
-        a = n.cast[float](a)
+        #a = n.cast[float](a)
+        a = np.asarray(a, dtype=float)      
 
     if minusone:
        m1=1
     else:
        m1=0
     #m1 = n.cast[int](minusone)
-    ofs = n.cast[int](centre) * 0.5
+    #ofs = n.cast[int](centre) * 0.5
+    ofs = np.asarray(centre, dtype=int)*0.5
     old = n.array( a.shape )
     ndims = len( a.shape )
     if len( newdims ) != ndims:
