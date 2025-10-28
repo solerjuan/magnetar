@@ -1,6 +1,6 @@
 # This file is part of MAGNETAR, the set of magnetic field analysis tools
 #
-# Copyright (C) 2013-2017 Juan Diego Soler
+# Copyright (C) 2013-2025 Juan Diego Soler
 
 import os
 import sys
