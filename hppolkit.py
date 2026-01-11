@@ -147,13 +147,13 @@ def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', ni
    plt.savefig(label+"_histPoverI.png")
    plt.close()
     
-   binspoveri=np.linspace(0.,30.,500)
+   binsp=np.linspace(0.,30.,500)
    binslognh=np.linspace(-2.0,2.0,500)
 
    NHmap[(NHmap < 1.).nonzero()]=np.nan 
    logNH21=np.log10(NHmap/1e21)
    good=np.logical_and(np.isfinite(logNH21),np.isfinite(PoverImap)).nonzero()
-   hist2DlognhANDpoveri, xedges, yedges = np.histogram2d(logNH21[good], 100.*PoverImap[good], bins=(binslognh,binspoveri))
+   hist2DlognhANDpoveri, xedges, yedges = np.histogram2d(logNH21[good], 100.*PoverImap[good], bins=(binslognh,binsp))
 
    xmat, ymat = np.meshgrid(xedges, yedges)
 
@@ -195,7 +195,7 @@ def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', ni
    plt.close()
    #import pdb; pdb.set_trace()
 
-   return {'binspsi': binspsi, 'histpsi': histpsi, 'binPoverI': binPoverI, 'histPoverI': histPoverI, 'binsgradpsi': binsgradpsi, 'histgradpsi': histgradpsi}
+   return {'binspsi': binspsi, 'histpsi': histpsi, 'binsPoverI': binsPoverI, 'histPoverI': histPoverI, 'binsgradpsi': binsgradpsi, 'histgradpsi': histgradpsi}
 
 # ===================================================================================================
 #def diagnostic2DHists(Imap, Qmap, Umap, fwhm, fwhm0=0.):

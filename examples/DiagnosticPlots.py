@@ -66,7 +66,7 @@ hdup=fits.open(dir2+'COM_CompMap_Dust-GNILC-Model-Opacity_2048_R2.01.fits')
 tau353=hdup[1].data['TAU353']
 planckNH=tau353/NHtotau353
 
-outhist=diagnosticHists(I353, Q353, U353, planckNH, polconv='Planck', label='Planck')
+outhistPlanck=diagnosticHists(I353, Q353, U353, planckNH, polconv='Planck', label='Planck')
 
 snpsht="824"
 indir="/Users/soler/Documents/PYTHON/TressSims/example824/dust_Planck_loc2/data/"
@@ -79,7 +79,51 @@ Usim=hdu[1].data['U_STOKES (WAVELENGTH = 8.500000e-04 [m])']
 NHsim=hdu[1].data['COLUMN_DENSITY']/1e2
 
 soutput=smoothmaps(Isim, Qsim, Usim, 80., NHmap=NHsim)
-outhist=diagnosticHists(soutput['Imap'], soutput['Qmap'], soutput['Umap'], soutput['NHmap'], polconv='Polaris', label='RheaIIsnapshot'+snpsht+"loc2")
+outhistSim=diagnosticHists(soutput['Imap'], soutput['Qmap'], soutput['Umap'], soutput['NHmap'], polconv='Polaris', label='RheaIIsnapshot'+snpsht+"loc2")
+
+prefix="PlanckAndRheaIIexample"
+
+fig = plt.figure(figsize=(6.0,4.0))
+plt.rc('font', size=14)
+ax1=plt.subplot(111)
+ax1.plot(outhistPlanck['binspsi'], outhistPlanck['histpsi'], color='dodgerblue', linewidth=2.0, label='Planck')
+ax1.plot(outhistSim['binspsi'],    outhistSim['histpsi'], color='orange', linewidth=2.0, label=snpsht+" loc2")
+ax1.axvline(x=0., linestyle='dashed')
+ax1.tick_params(axis='y', labelrotation=90)
+ax1.set_xlabel(r"$\psi$ [rad]")
+ax1.set_ylabel(r"Counts")
+plt.legend()
+plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.94)
+plt.savefig(prefix+"_histPoverI.png")
+plt.close()
+
+fig = plt.figure(figsize=(6.0,4.0))
+plt.rc('font', size=14)
+ax1=plt.subplot(111)
+ax1.plot(outhistPlanck['binsPoverI'], outhistPlanck['histPoverI'], color='dodgerblue', linewidth=2.0, label='Planck')
+ax1.plot(outhistSim['binsPoverI'],    outhistSim['histPoverI'], color='orange', linewidth=2.0, label=snpsht+" loc2")
+ax1.axvline(x=0., linestyle='dashed')
+ax1.tick_params(axis='y', labelrotation=90)
+ax1.set_xlabel(r"$P/I$ [%]")
+ax1.set_ylabel(r"Counts")
+plt.legend()
+plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.94)
+plt.savefig(prefix+"_histPoverI.png")
+plt.close()
+
+fig = plt.figure(figsize=(6.0,4.0))
+plt.rc('font', size=14)
+ax1=plt.subplot(111)
+ax1.plot(outhistPlanck['binsgradpsi'], outhistPlanck['histgradpsi'], color='dodgerblue', linewidth=2.0, label='Planck')
+ax1.plot(outhistSim['binsgradpsi'],    outhistSim['histgradpsi'], color='orange', linewidth=2.0, label=snpsht+" loc2")
+ax1.axvline(x=0., linestyle='dashed')
+ax1.tick_params(axis='y', labelrotation=90)
+ax1.set_xlabel(r"$\mathcal{S}$ [deg]")
+ax1.set_ylabel(r"Counts")
+plt.legend()
+plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.94)
+plt.savefig(prefix+"_histS.png")
+plt.close()
 
 import pdb; pdb.set_trace()
 
