@@ -195,7 +195,7 @@ def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', ni
    plt.close()
    #import pdb; pdb.set_trace()
 
-   return 0.
+   return {'binspsi': binspsi, 'histpsi': histpsi, 'binPoverI': binPoverI, 'histPoverI': histPoverI, 'binsgradpsi': binsgradpsi, 'histgradpsi': histgradpsi}
 
 # ===================================================================================================
 #def diagnostic2DHists(Imap, Qmap, Umap, fwhm, fwhm0=0.):
