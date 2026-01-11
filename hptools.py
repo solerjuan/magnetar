@@ -14,13 +14,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
-from nose.tools import assert_equal, assert_true
+#from nose.tools import assert_equal, assert_true
       
-import sklearn
+#import sklearn
 import healpy as hp
 from tqdm import tqdm
    
-from statests import *
+#from statests import *
    
 sigma2fwhm=2.*np.sqrt(2.*np.log(2.))
 fwhm2sigma=1/sigma2fwhm
@@ -102,11 +102,11 @@ def gradPsi(Qmap, Umap, ksz=1.0, niter=3):
 
    Pmap=np.sqrt(Qmap**2+Umap**2)
    # Calculating GradPsi ------------------------------------------
-   output=gradienthp(Qmap/Pmap, niter=niter, lmax=lmax)
+   output=gradienthp(Qmap/Pmap, niter=niter, ksz=ksz)
    dQoverPdtheta=output['dtheta']
    dQoverPdphi=output['dphi']
 
-   output=gradienthp(Umap/Pmap, niter=niter, lmax=lmax)
+   output=gradienthp(Umap/Pmap, niter=niter, ksz=ksz)
    dUoverPdtheta=output['dtheta']
    dUoverPdphi=output['dphi']
 
