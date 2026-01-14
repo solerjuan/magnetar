@@ -57,15 +57,19 @@ southpix=(bvec < -5.0).nonzero()
 indir=''
 dir2='/Users/soler/Documents/PYTHON/Planck/ForegroundMaps/Dust/'
 hdup=fits.open(dir2+'COM_CompMap_IQU-thermaldust-gnilc-unires_2048_R3.00.fits')
-I353=hdup[1].data['I_STOKES']*287.5 #-452
-Q353=hdup[1].data['Q_STOKES']*287.5
-U353=hdup[1].data['U_STOKES']*287.5
+CIBmonopole=452e-6 # Kcmb
+I353nest=(hdup[1].data['I_STOKES']-CIBmonopole)*287.5 # Myr/sr
+Q353nest=hdup[1].data['Q_STOKES']*287.5 # Myr/sr
+U353nest=hdup[1].data['U_STOKES']*287.5 # Myr/sr
 hdup.close()
 
 hdup=fits.open(dir2+'COM_CompMap_Dust-GNILC-Model-Opacity_2048_R2.01.fits')
 tau353=hdup[1].data['TAU353']
 planckNH=tau353/NHtotau353
 
+I353=hp.reorder(I353nest, n2r=True)
+Q353=hp.reorder(Q353nest, n2r=True)
+U353=hp.reorder(U353nest, n2r=True)
 outhistPlanck=diagnosticHists(I353, Q353, U353, planckNH, polconv='Planck', label='Planck')
 
 snpsht="824"
@@ -76,7 +80,7 @@ hdu=fits.open(indir+"polaris_detector_nr0003.fits.gz")
 Isim=hdu[1].data['I_STOKES (WAVELENGTH = 8.500000e-04 [m])']
 Qsim=hdu[1].data['Q_STOKES (WAVELENGTH = 8.500000e-04 [m])']
 Usim=hdu[1].data['U_STOKES (WAVELENGTH = 8.500000e-04 [m])']
-NHsim=hdu[1].data['COLUMN_DENSITY']/1e2
+NHsim=hdu[1].data['COLUMN_DENSITY']/1e4
 
 soutput=smoothmaps(Isim, Qsim, Usim, 80., NHmap=NHsim)
 outhistSim=diagnosticHists(soutput['Imap'], soutput['Qmap'], soutput['Umap'], soutput['NHmap'], polconv='Polaris', label='RheaIIsnapshot'+snpsht+"loc2")
@@ -94,7 +98,7 @@ ax1.set_xlabel(r"$\psi$ [rad]")
 ax1.set_ylabel(r"Counts")
 plt.legend()
 plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.94)
-plt.savefig(prefix+"_histPoverI.png")
+plt.savefig(prefix+"_histPsi.png")
 plt.close()
 
 fig = plt.figure(figsize=(6.0,4.0))
