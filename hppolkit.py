@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2025 Juan Diego Soler
 
+import sys
 import numpy as np
 
 from astropy.io import fits
@@ -18,6 +19,9 @@ import healpy as hp
 from tqdm import tqdm
 
 from hptools import gradPsi
+
+sys.path.append("../")
+from bvisual import *
 
 # -----------------------------------------------------------------
 def map_angle_pi_to_halfpi(angle):
@@ -95,8 +99,11 @@ def smoothmaps(Imap, Qmap, Umap, fwhm, fwhm0=0., NHmap=None):
 
    fwhmI=np.sqrt(fwhm**2-fwhm0**2)
 
+   print("Smoothing I map")
    sImap=hp.sphtfunc.smoothing(Imap.copy(), fwhm=np.deg2rad(fwhmI/60.))
+   print("Smoothing Q map")
    sQmap=hp.sphtfunc.smoothing(Qmap.copy(), fwhm=np.deg2rad(fwhmI/60.))
+   print("Smoothing U map")
    sUmap=hp.sphtfunc.smoothing(Umap.copy(), fwhm=np.deg2rad(fwhmI/60.))
 
    if (NHmap is None):
@@ -107,17 +114,30 @@ def smoothmaps(Imap, Qmap, Umap, fwhm, fwhm0=0., NHmap=None):
    return {'Imap': sImap, 'Qmap': sQmap, 'Umap': sUmap, 'NHmap': sNHmap}
 
 # ===================================================================================================
-def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', niter=3): 
+def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', niter=3, nglatbins=5, nest=False): 
 
    if (polconv=='Polaris'):
       psimap=rotate_and_wrap_90(0.5*np.arctan2(Umap,Qmap))
    if (polconv=='Planck'):
       psimap=map_angle_pi_to_halfpi(0.5*np.arctan2(Umap,Qmap)) 
 
+   ipix=np.arange(np.size(Imap))
+   glon, glat= hp.pix2ang(hp.npix2nside(np.size(Imap)), ipix, lonlat=True)
+
+   scaleheight=150.0
+   distance=500.0
+   refang=np.arctan(0.5*scaleheight/distance)      
+
    # ===============================================================================
    PoverImap=np.sqrt(Qmap**2+Umap**2)/Imap
-   histPoverI, bins = np.histogram(100*PoverImap, range=[0,25.0], bins=500, density=True)
+   histPoverI, bins = np.histogram(100*PoverImap, range=[0,35.0], bins=500, density=True)
    binsPoverI=0.5*(bins[0:np.size(bins)-1]+bins[1:np.size(bins)])
+
+   # P/I map (Fig. 2. in Planck 2018 XI)
+   hp.mollview(100*PoverImap, min=0., max=25., unit=r'$P/I$ [%]', cmap=planckct(), nest=nest) 
+   hp.graticule()
+   plt.savefig(label+"_mapPoverI.png")
+   plt.close()
 
    # P/I histogram (Fig. 5. in Planck 2018 XI)
    fig = plt.figure(figsize=(6.0,4.0))
@@ -134,10 +154,75 @@ def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', ni
    plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.94)
    plt.savefig(label+"_histPoverI.png")
    plt.close()
-    
+ 
+   hglat, bglat = np.histogram(glat, bins=1000) 
+   bcglat=0.5*(bglat[0:np.size(bglat)-1]+bglat[1:np.size(bglat)])
+   cumhglat=np.cumsum(hglat)/np.sum(hglat)
+
+   glatbins=np.zeros(nglatbins+1)
+   for i in range(0,nglatbins+1): diff=np.abs(cumhglat-i*(1/nglatbins)); ibin=np.min((diff==np.min(diff)).nonzero()); glatbins[i]=bcglat[ibin]
+
+   # -----------------------------------------------------
+   histsPoverI=np.zeros([nglatbins,np.size(bins)-1])   
+   for i in range(0,nglatbins):
+      temphist, bins = np.histogram(100*PoverImap[np.logical_and(glat > glatbins[i], glat < glatbins[i+1]).nonzero()], bins=bins, density=True) 
+      histsPoverI[i,:]=temphist
+ 
+   mycolors=plt.cm.managua(np.linspace(0, 1, nglatbins))
+
+   # P/I histograms in glat ranges
+   fig = plt.figure(figsize=(6.0,4.0))
+   plt.rc('font', size=14)
+   ax1=plt.subplot(111)
+   ax1.set_xlim(0.,31.)
+   ax1.set_ylim(2e-3,0.2)
+   for i in range(0,nglatbins): ax1.semilogy(binsPoverI, histsPoverI[i,:], color=mycolors[i], linewidth=2.0, label=str(np.round(glatbins[i]))+r"$<b<$"+str(np.round(glatbins[i+1]))+r"$^{\circ}$")
+   ax1.axvline(x=0., linestyle='dashed')
+   ax1.tick_params(axis='y', labelrotation=90)
+   ax1.set_xlabel(r"$P/I$ [%]")
+   ax1.set_ylabel(r"Counts")
+   plt.legend()
+   plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.94)
+   plt.savefig(label+"_histPoverImultib.png")
+   plt.close() 
+
+   # Galactic plane glon bins 
+   bmin=-10.0; bmax=10.0
+   lbins=np.linspace(0.,360.0,6) 
+
+   histsPoverI=np.zeros([np.size(lbins)-1,np.size(bins)-1]) 
+
+   for i in range(0,np.size(lbins)-1):
+      goodb=np.logical_and(glat > bmin, glat < bmax)
+      goodl=np.logical_and(glon > lbins[i], glon < lbins[i+1])
+      temphist, bins = np.histogram(100*PoverImap[np.logical_and(goodb, goodl).nonzero()], bins=bins, density=True)
+      histsPoverI[i,:]=temphist
+
+   fig = plt.figure(figsize=(6.0,4.0))
+   plt.rc('font', size=14)
+   ax1=plt.subplot(111)
+   ax1.set_title(str(bmin)+r"$<b<$"+str(bmax)+r"$^{\circ}$")
+   ax1.set_xlim(0.,31.)
+   ax1.set_ylim(2e-3,0.2)
+   for i in range(0,np.size(lbins)-1): ax1.semilogy(binsPoverI, histsPoverI[i,:], color=mycolors[i], linewidth=2.0, label=str(np.round(lbins[i]))+r"$<l<$"+str(np.round(lbins[i+1]))+r"$^{\circ}$")
+   ax1.axvline(x=0., linestyle='dashed')
+   ax1.tick_params(axis='y', labelrotation=90)
+   ax1.set_xlabel(r"$P/I$ [%]")
+   ax1.set_ylabel(r"Counts")
+   plt.legend()
+   plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.92)
+   plt.savefig(label+"_histPoverIplanelbins.png")
+   plt.close()
+ 
    # ===============================================================================
    histpsi, bins = np.histogram(psimap, range=[-np.pi/2.,np.pi/2.], bins=500, density=True)
    binspsi=0.5*(bins[0:np.size(bins)-1]+bins[1:np.size(bins)]) 
+
+   # psi map (Fig. 2. in Planck 2018 XI)
+   hp.mollview(np.rad2deg(psimap), min=-90., max=90., unit=r'$\psi$ [deg]', cmap='hsv', nest=nest)
+   hp.graticule()
+   plt.savefig(label+"_mapPsi.png")
+   plt.close()
 
    # Psi histogram (Fig. 6. in Planck 2018 XI)   
    fig = plt.figure(figsize=(6.0,4.0))
@@ -160,6 +245,12 @@ def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', ni
    ksz=80.0/60.0 #deg
    gradpsi=gradPsi(Qmap, Umap, ksz=ksz, niter=niter)
    Sfunc=np.rad2deg(np.deg2rad(ksz)*gradpsi/(2.*np.sqrt(2.)))
+
+   # psi map (Fig. 2. in Planck 2018 XI)
+   hp.mollview(Sfunc, norm='log', unit=r'$\log_{10}(\mathcal{S}/{\rm deg})$', cmap='gist_heat', min=0.1, max=60., nest=nest)
+   hp.graticule()
+   plt.savefig(label+"_mapS.png")
+   plt.close()
  
    histS, bins = np.histogram(Sfunc, bins=500, density=True) 
    binsS=0.5*(bins[0:np.size(bins)-1]+bins[1:np.size(bins)])

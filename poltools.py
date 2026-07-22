@@ -3,6 +3,7 @@
 # Copyright (C) 2013-2017 Juan Diego Soler
 
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.convolution import convolve, convolve_fft
@@ -121,10 +122,14 @@ def gradpoverp(Qmap, Umap, ksz=1, mode='nearest'):
 
 # -----------------------------------------------------------------------------------------------------------
 def anglediff(angle1, angle2):
+ 
+   """
+   Compute the smallest signed difference between two angles (in radians).
+    
+   Returns a value in the range [-pi, pi].
+   """
 
-   phi=np.arctan2(np.tan(angle1)-np.tan(angle2),1+np.tan(angle1)*np.tan(angle2))
-  
-   return phi
+   return (angle2 - angle1 + math.pi) % (2 * math.pi) - math.pi
 
 # -----------------------------------------------------------------------------------------------------------
 def polanglediff(angle1, angle2):
