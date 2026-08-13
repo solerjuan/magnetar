@@ -23,6 +23,12 @@ from hptools import gradPsi
 sys.path.append("../")
 from bvisual import *
 
+# ----------------------------------------------------------------
+def angle_difference(angle1, angle2):
+
+    diff = np.deg2rad(angle2 - angle1)
+    return np.rad2deg(np.arctan2(np.sin(diff), np.cos(diff)))
+
 # -----------------------------------------------------------------
 def map_angle_pi_to_halfpi(angle):
     """
@@ -188,23 +194,34 @@ def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', ni
 
    # Galactic plane glon bins 
    bmin=-10.0; bmax=10.0
-   lbins=np.linspace(0.,360.0,6) 
+   #bmin=-5.0; bmax=5.0
+   #lbins=np.linspace(0.,360.0,6)
+   deltal=45.
+   lbcen=np.arange(0.,360.,deltal)
 
-   histsPoverI=np.zeros([np.size(lbins)-1,np.size(bins)-1]) 
+   histsPoverI=np.zeros([np.size(lbcen),np.size(bins)-1]) 
 
-   for i in range(0,np.size(lbins)-1):
+   for i in range(0,np.size(lbcen)):
       goodb=np.logical_and(glat > bmin, glat < bmax)
-      goodl=np.logical_and(glon > lbins[i], glon < lbins[i+1])
+      diff=np.abs(angle_difference(glon, lbcen[i]))
+      goodl=(diff < 0.5*deltal)
       temphist, bins = np.histogram(100*PoverImap[np.logical_and(goodb, goodl).nonzero()], bins=bins, density=True)
       histsPoverI[i,:]=temphist
+
+      #mask=np.zeros_like(glat) 
+      #mask[np.logical_and(goodb, goodl).nonzero()]=1.
+      #hp.mollview(mask) 
+      #plt.show()
+
+   mycolors=plt.cm.hsv(np.linspace(0, 1, np.size(lbcen)+1))
 
    fig = plt.figure(figsize=(6.0,4.0))
    plt.rc('font', size=14)
    ax1=plt.subplot(111)
    ax1.set_title(str(bmin)+r"$<b<$"+str(bmax)+r"$^{\circ}$")
    ax1.set_xlim(0.,31.)
-   ax1.set_ylim(2e-3,0.2)
-   for i in range(0,np.size(lbins)-1): ax1.semilogy(binsPoverI, histsPoverI[i,:], color=mycolors[i], linewidth=2.0, label=str(np.round(lbins[i]))+r"$<l<$"+str(np.round(lbins[i+1]))+r"$^{\circ}$")
+   ax1.set_ylim(2e-3,np.nanmax(1.1*histsPoverI))
+   for i in range(0,np.size(lbcen)): ax1.semilogy(binsPoverI, histsPoverI[i,:], color=mycolors[i], linewidth=2.0, label=str(np.round(lbcen[i]-0.5*deltal))+r"$<l<$"+str(np.round(lbcen[i]+0.5*deltal))+r"$^{\circ}$")
    ax1.axvline(x=0., linestyle='dashed')
    ax1.tick_params(axis='y', labelrotation=90)
    ax1.set_xlabel(r"$P/I$ [%]")
@@ -213,7 +230,31 @@ def diagnosticHists(Imap, Qmap, Umap, NHmap, polconv='Polaris', label='Test', ni
    plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.92)
    plt.savefig(label+"_histPoverIplanelbins.png")
    plt.close()
- 
+
+   # =============================================================================== 
+   deltal=360./180
+   lsteps=np.arange(-180.,180.,deltal)
+   bsteps=np.zeros_like(lsteps)
+
+   selpix=hp.ang2pix(hp.npix2nside(np.size(Imap)), lsteps, bsteps, lonlat=True)
+
+   fig = plt.figure(figsize=(6.0,5.0))
+   plt.rc('font', size=14)
+   ax1=plt.subplot(211)
+   ax1.set_xlim(180.,-180.)
+   ax1.plot(lsteps, Imap[selpix], color='orange')
+   ax1.tick_params(axis='y', labelrotation=90)
+   ax1.set_ylabel(r"$I$ [Jy/sr]")
+   ax2=plt.subplot(212)
+   ax2.set_xlim(180.,-180.)
+   ax2.plot(lsteps, 100*np.sqrt(Qmap[selpix]**2+Umap[selpix]**2)/Imap[selpix], color='dodgerblue')
+   ax2.tick_params(axis='y', labelrotation=90)
+   ax2.set_ylabel(r"$P/I$ [%]")
+   ax2.set_xlabel(r"$l$ [deg]")
+   plt.subplots_adjust(left=0.1, bottom=0.14, right=0.99, top=0.99)
+   plt.savefig(label+"_planeIandPoverIprofiles.png")
+   plt.close()
+
    # ===============================================================================
    histpsi, bins = np.histogram(psimap, range=[-np.pi/2.,np.pi/2.], bins=500, density=True)
    binspsi=0.5*(bins[0:np.size(bins)-1]+bins[1:np.size(bins)]) 
